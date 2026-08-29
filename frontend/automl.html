@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>AutoML — AI Data Intelligence</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+<div id="loading-overlay" class="loading-overlay"><div class="loading-box"><div class="spinner"></div><p id="loading-msg">Training models... This may take a minute.</p></div></div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>🤖 AI Platform</h2><p>Data Intelligence</p></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><span class="icon">📊</span>Dashboard</a>
+    <a href="dataset.html"><span class="icon">📁</span>Datasets</a>
+    <a href="quality.html"><span class="icon">🔍</span>Data Quality</a>
+    <a href="eda.html"><span class="icon">📈</span>EDA</a>
+    <a href="automl.html" class="active"><span class="icon">🤖</span>AutoML</a>
+    <a href="experiments.html"><span class="icon">🧪</span>Experiments</a>
+    <a href="predictions.html"><span class="icon">🔮</span>Predictions</a>
+    <a href="reports.html"><span class="icon">📑</span>Reports</a>
+  </nav>
+</aside>
+<div class="main">
+  <div class="topbar"><h1>AutoML</h1></div>
+  <div class="content">
+    <div class="grid-2" style="margin-bottom:24px;align-items:start">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Configuration</div></div>
+        <div class="form-group">
+          <label class="form-label">Select Dataset</label>
+          <select class="form-control" id="dataset-select" onchange="loadColumns()">
+            <option value="">-- Choose dataset --</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Column</label>
+          <select class="form-control" id="target-select"><option value="">-- Select dataset first --</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Test Size</label>
+          <select class="form-control" id="test-size">
+            <option value="0.2">20% (recommended)</option>
+            <option value="0.3">30%</option>
+            <option value="0.1">10%</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="runAutoML()">🚀 Run AutoML</button>
+        <div class="alert alert-info" style="margin-top:12px;font-size:12px">AutoML will automatically detect whether your problem is classification or regression and train multiple models.</div>
+      </div>
+      <div class="card" id="results-summary" style="display:none">
+        <div class="card-header"><div class="card-title">Best Model</div></div>
+        <div class="prediction-result" style="margin-bottom:16px">
+          <div class="pred-label">Best Model</div>
+          <div class="pred-value" id="best-model-name">—</div>
+          <div style="font-size:14px;margin-top:4px;opacity:.8" id="best-score-display">—</div>
+        </div>
+        <div id="problem-type-badge" style="text-align:center;margin-bottom:12px"></div>
+        <div class="stat-grid" id="best-metrics"></div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <a id="predict-link" href="predictions.html" class="btn btn-success" style="flex:1;justify-content:center">🔮 Predict</a>
+          <button onclick="loadFeatureImportance()" class="btn btn-outline" style="flex:1">🧠 Explain</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="models-card" style="display:none">
+      <div class="card-header"><div class="card-title">Model Comparison</div></div>
+      <div id="model-comparison"></div>
+      <canvas id="model-chart" style="max-height:280px;margin-top:16px"></canvas>
+    </div>
+
+    <div class="card" id="importance-card" style="display:none;margin-top:20px">
+      <div class="card-header"><div class="card-title">Feature Importance</div></div>
+      <div id="importance-bars"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+let currentDatasetId = null;
+let modelChart = null;
+
+async function loadDatasets() {
+  const data = await apiJSON("/datasets");
+  const sel = document.getElementById("dataset-select");
+  data.forEach(d => { const o = document.createElement("option"); o.value = d.id; o.textContent = `${d.name} (${d.rows?.toLocaleString()} rows)`; sel.appendChild(o); });
+  const p = new URLSearchParams(location.search).get("dataset");
+  if (p) { sel.value = p; loadColumns(); }
+}
+
+async function loadColumns() {
+  const id = document.getElementById("dataset-select").value;
+  if (!id) return;
+  currentDatasetId = id;
+  const data = await apiJSON(`/datasets/${id}/profile`);
+  const sel = document.getElementById("target-select");
+  sel.innerHTML = '<option value="">-- Select target --</option>';
+  data.profile.columns.forEach(c => { const o = document.createElement("option"); o.value = c.name; o.textContent = c.name + " (" + c.dtype + ")"; sel.appendChild(o); });
+}
+
+async function runAutoML() {
+  const id = document.getElementById("dataset-select").value;
+  const target = document.getElementById("target-select").value;
+  const testSize = document.getElementById("test-size").value;
+  if (!id || !target) { showToast("Select dataset and target column", "error"); return; }
+  showLoading("Training all models... please wait.");
+  try {
+    const data = await apiJSON(`/datasets/${id}/train?target=${encodeURIComponent(target)}&test_size=${testSize}`, { method: "POST" });
+    hideLoading();
+    showToast("AutoML complete! Best model: " + data.best_model);
+    renderResults(data, id);
+  } catch (e) { hideLoading(); showToast(e.message, "error"); }
+}
+
+function renderResults(data, id) {
+  document.getElementById("results-summary").style.display = "block";
+  document.getElementById("models-card").style.display = "block";
+  document.getElementById("best-model-name").textContent = data.best_model;
+  const scoreText = data.problem_type === "classification"
+    ? (data.best_score * 100).toFixed(1) + "% Accuracy"
+    : "R² = " + data.best_score.toFixed(4);
+  document.getElementById("best-score-display").textContent = scoreText;
+  document.getElementById("problem-type-badge").innerHTML = `<span class="badge ${data.problem_type === "classification" ? "badge-primary" : "badge-success"}">${data.problem_type.toUpperCase()}</span>`;
+  document.getElementById("predict-link").href = `predictions.html?dataset=${id}`;
+
+  const sorted = data.results.filter(r => r.score !== null).sort((a, b) => b.score - a.score);
+  const isClass = data.problem_type === "classification";
+  document.getElementById("model-comparison").innerHTML = sorted.map((r, i) => `
+    <div class="model-card ${i === 0 ? "best" : ""}" style="margin-bottom:8px">
+      <div><div class="model-name">${i === 0 ? "🏆 " : ""}${r.model_name}</div>
+           <div class="model-time">⏱ ${r.training_time?.toFixed(2)}s training</div></div>
+      <div><div class="model-score">${isClass ? (r.score * 100).toFixed(1) + "%" : r.score?.toFixed(4)}</div>
+           <div style="font-size:11px;color:var(--text-muted)">${isClass ? "Accuracy" : "R²"}</div></div>
+    </div>`).join("");
+
+  if (modelChart) modelChart.destroy();
+  const ctx = document.getElementById("model-chart").getContext("2d");
+  modelChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: sorted.map(r => r.model_name),
+      datasets: [{ label: isClass ? "Accuracy" : "R²", data: sorted.map(r => isClass ? r.score * 100 : r.score),
+        backgroundColor: sorted.map((_, i) => i === 0 ? "#4F46E5" : "#A5B4FC"), borderRadius: 6 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, max: isClass ? 100 : 1 } } }
+  });
+}
+
+async function loadFeatureImportance() {
+  const id = document.getElementById("dataset-select").value;
+  if (!id) return;
+  try {
+    const data = await apiJSON(`/datasets/${id}/feature-importance`);
+    const fi = data.feature_importance;
+    if (!fi.length) { showToast("No feature importance available for this model type", "error"); return; }
+    const maxVal = Math.max(...fi.map(f => f.importance));
+    document.getElementById("importance-card").style.display = "block";
+    document.getElementById("importance-bars").innerHTML = fi.map(f => `
+      <div class="feat-bar-wrap">
+        <div class="feat-bar-label"><span>${f.feature}</span><span>${f.importance.toFixed(4)}</span></div>
+        <div class="progress"><div class="progress-bar" style="width:${(f.importance / maxVal * 100).toFixed(1)}%"></div></div>
+      </div>`).join("");
+    document.getElementById("importance-card").scrollIntoView({ behavior: "smooth" });
+  } catch(e) { showToast(e.message, "error"); }
+}
+
+loadDatasets();
+</script>
+</body></html>

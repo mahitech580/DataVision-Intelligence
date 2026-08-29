@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Datasets — AI Data Intelligence</title>
+<link rel="stylesheet" href="css/style.css"></head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+<div id="loading-overlay" class="loading-overlay"><div class="loading-box"><div class="spinner"></div><p>Uploading...</p></div></div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>🤖 AI Platform</h2><p>Data Intelligence</p></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><span class="icon">📊</span>Dashboard</a>
+    <a href="dataset.html" class="active"><span class="icon">📁</span>Datasets</a>
+    <a href="quality.html"><span class="icon">🔍</span>Data Quality</a>
+    <a href="eda.html"><span class="icon">📈</span>EDA</a>
+    <a href="automl.html"><span class="icon">🤖</span>AutoML</a>
+    <a href="experiments.html"><span class="icon">🧪</span>Experiments</a>
+    <a href="predictions.html"><span class="icon">🔮</span>Predictions</a>
+    <a href="reports.html"><span class="icon">📑</span>Reports</a>
+  </nav>
+</aside>
+<div class="main">
+  <div class="topbar"><h1>Datasets</h1></div>
+  <div class="content">
+    <div class="grid-2" style="margin-bottom:24px;align-items:start">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Upload Dataset</div></div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+          <div class="upload-icon">📂</div>
+          <h3>Drop your file here</h3>
+          <p>CSV or Excel files up to 50MB</p>
+          <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none">
+          <button class="btn btn-primary" style="margin-top:14px" onclick="event.stopPropagation();document.getElementById('file-input').click()">Browse File</button>
+        </div>
+        <div id="upload-result" style="margin-top:16px;display:none">
+          <div class="alert alert-success" id="upload-msg"></div>
+          <div id="upload-stats" class="grid-2" style="margin-top:12px;gap:10px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">All Datasets</div></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>#</th><th>Name</th><th>Rows</th><th>Columns</th><th>Size</th><th>Actions</th></tr></thead>
+          <tbody id="datasets-table"><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No datasets uploaded yet</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+    <div class="card" id="profile-card" style="display:none">
+      <div class="card-header"><div class="card-title" id="profile-title">Dataset Profile</div></div>
+      <div class="table-wrap"><table id="profile-table">
+        <thead><tr><th>Column</th><th>Type</th><th>Unique</th><th>Missing</th><th>Missing%</th><th>Mean</th><th>Min</th><th>Max</th></tr></thead>
+        <tbody id="profile-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script>
+const fileInput = document.getElementById("file-input");
+const uploadZone = document.getElementById("upload-zone");
+
+uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("dragover"); });
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+uploadZone.addEventListener("drop", e => { e.preventDefault(); uploadZone.classList.remove("dragover"); if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener("change", () => { if (fileInput.files[0]) uploadFile(fileInput.files[0]); });
+
+async function uploadFile(file) {
+  showLoading("Uploading & analyzing...");
+  const fd = new FormData(); fd.append("file", file);
+  try {
+    const data = await apiJSON("/datasets/upload", { method: "POST", body: fd });
+    hideLoading();
+    document.getElementById("upload-result").style.display = "block";
+    document.getElementById("upload-msg").textContent = `✓ "${data.name}" uploaded successfully!`;
+    document.getElementById("upload-stats").innerHTML = `
+      <div class="stat-card"><div class="stat-value">${data.rows?.toLocaleString()}</div><div class="stat-label">Rows</div></div>
+      <div class="stat-card"><div class="stat-value">${data.columns}</div><div class="stat-label">Columns</div></div>
+      <div class="stat-card"><div class="stat-value">${data.file_size} MB</div><div class="stat-label">File Size</div></div>
+    `;
+    showToast(`Dataset uploaded: ${data.name}`);
+    loadDatasets();
+    loadProfile(data.id, data.name);
+  } catch (e) { hideLoading(); showToast(e.message, "error"); }
+}
+
+async function loadDatasets() {
+  try {
+    const data = await apiJSON("/datasets");
+    const tbody = document.getElementById("datasets-table");
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">No datasets uploaded yet</td></tr>'; return; }
+    tbody.innerHTML = data.map(d => `<tr>
+      <td>${d.id}</td><td><strong>${d.name}</strong></td>
+      <td>${d.rows?.toLocaleString()}</td><td>${d.columns}</td>
+      <td>${d.file_size} MB</td>
+      <td><button class="btn btn-sm btn-outline" onclick="loadProfile(${d.id},'${d.name}')">Profile</button>
+          <a href="automl.html?dataset=${d.id}" class="btn btn-sm btn-primary" style="margin-left:4px">Train</a></td>
+    </tr>`).join("");
+  } catch(e) {}
+}
+
+async function loadProfile(id, name) {
+  showLoading("Loading profile...");
+  try {
+    const data = await apiJSON(`/datasets/${id}/profile`);
+    hideLoading();
+    document.getElementById("profile-card").style.display = "block";
+    document.getElementById("profile-title").textContent = `Profile: ${name || data.dataset.name}`;
+    const cols = data.profile.columns;
+    document.getElementById("profile-body").innerHTML = cols.map(c => `<tr>
+      <td><strong>${c.name}</strong></td>
+      <td><span class="badge ${c.dtype.includes("int") || c.dtype.includes("float") ? "badge-primary" : "badge-warning"}">${c.dtype}</span></td>
+      <td>${c.unique_values}</td>
+      <td>${c.missing_count}</td>
+      <td>${c.missing_pct > 0 ? `<span class="badge badge-danger">${c.missing_pct}%</span>` : '<span class="badge badge-success">0%</span>'}</td>
+      <td>${c.mean !== undefined && c.mean !== null ? c.mean : "—"}</td>
+      <td>${c.min !== undefined && c.min !== null ? c.min : "—"}</td>
+      <td>${c.max !== undefined && c.max !== null ? c.max : "—"}</td>
+    </tr>`).join("");
+    document.getElementById("profile-card").scrollIntoView({ behavior: "smooth" });
+  } catch(e) { hideLoading(); showToast(e.message, "error"); }
+}
+
+loadDatasets();
+</script>
+</body></html>

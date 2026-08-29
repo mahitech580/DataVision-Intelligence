@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>EDA — AI Data Intelligence</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script></head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+<div id="loading-overlay" class="loading-overlay"><div class="loading-box"><div class="spinner"></div><p>Loading EDA...</p></div></div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>🤖 AI Platform</h2><p>Data Intelligence</p></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><span class="icon">📊</span>Dashboard</a>
+    <a href="dataset.html"><span class="icon">📁</span>Datasets</a>
+    <a href="quality.html"><span class="icon">🔍</span>Data Quality</a>
+    <a href="eda.html" class="active"><span class="icon">📈</span>EDA</a>
+    <a href="automl.html"><span class="icon">🤖</span>AutoML</a>
+    <a href="experiments.html"><span class="icon">🧪</span>Experiments</a>
+    <a href="predictions.html"><span class="icon">🔮</span>Predictions</a>
+    <a href="reports.html"><span class="icon">📑</span>Reports</a>
+  </nav>
+</aside>
+<div class="main">
+  <div class="topbar"><h1>Exploratory Data Analysis</h1></div>
+  <div class="content">
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:200px;margin-bottom:0">
+          <label class="form-label">Dataset</label>
+          <select class="form-control" id="ds-sel" onchange="loadEDA()"><option value="">-- Select --</option></select>
+        </div>
+      </div>
+    </div>
+    <div id="eda-content" style="display:none">
+      <div id="charts-grid" class="grid-2" style="margin-bottom:20px"></div>
+      <div class="card" id="corr-card" style="display:none">
+        <div class="card-title" style="margin-bottom:16px">Correlation Matrix</div>
+        <div id="corr-table"></div>
+      </div>
+    </div>
+    <div id="empty-state" class="card" style="text-align:center;padding:48px">
+      <div style="font-size:48px;margin-bottom:12px">📈</div>
+      <h3>Select a dataset to explore</h3>
+      <p style="color:var(--text-muted);margin-top:8px">Upload a dataset first, then select it above to see charts and analysis.</p>
+    </div>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script>
+const charts = {};
+async function loadDatasets() {
+  const data = await apiJSON("/datasets");
+  const sel = document.getElementById("ds-sel");
+  data.forEach(d => { const o = document.createElement("option"); o.value = d.id; o.textContent = d.name; sel.appendChild(o); });
+}
+
+async function loadEDA() {
+  const id = document.getElementById("ds-sel").value;
+  if (!id) return;
+  showLoading("Generating EDA charts...");
+  try {
+    const data = await apiJSON(`/datasets/${id}/eda`);
+    hideLoading();
+    document.getElementById("eda-content").style.display = "block";
+    document.getElementById("empty-state").style.display = "none";
+    const grid = document.getElementById("charts-grid");
+    grid.innerHTML = "";
+    Object.entries(data.charts).forEach(([col, chartData]) => {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `<div class="card-title" style="margin-bottom:12px">${col}</div><canvas id="chart-${col.replace(/\W/g,'_')}"></canvas>`;
+      grid.appendChild(card);
+      const canvasId = `chart-${col.replace(/\W/g,'_')}`;
+      setTimeout(() => {
+        const ctx = document.getElementById(canvasId)?.getContext("2d");
+        if (!ctx) return;
+        if (chartData.histogram) {
+          const h = chartData.histogram;
+          new Chart(ctx, { type: "bar", data: { labels: h.labels, datasets: [{ label: col, data: h.values, backgroundColor: "#818CF8", borderRadius: 4 }] }, options: { responsive: true, plugins: { legend: { display: false } } } });
+        } else if (chartData.bar) {
+          const b = chartData.bar;
+          new Chart(ctx, { type: "bar", data: { labels: b.labels, datasets: [{ label: col, data: b.values, backgroundColor: "#06B6D4", borderRadius: 4 }] }, options: { responsive: true, plugins: { legend: { display: false } }, indexAxis: "y" } });
+        }
+      }, 50);
+    });
+    if (data.correlation?.columns) {
+      document.getElementById("corr-card").style.display = "block";
+      const mat = data.correlation;
+      const header = `<tr><th></th>${mat.columns.map(c => `<th>${c}</th>`).join("")}</tr>`;
+      const rows = mat.matrix.map((row, i) => `<tr><td><strong>${mat.columns[i]}</strong></td>${row.map(v => {
+        const abs = Math.abs(v); const color = v > 0.7 ? "#4F46E5" : v > 0.4 ? "#818CF8" : v < -0.4 ? "#EF4444" : "#E2E8F0";
+        return `<td style="background:${color};color:${abs > 0.4 ? "#fff" : "inherit"};text-align:center">${v}</td>`;
+      }).join("")}</tr>`).join("");
+      document.getElementById("corr-table").innerHTML = `<div class="table-wrap"><table><thead>${header}</thead><tbody>${rows}</tbody></table></div>`;
+    }
+  } catch(e) { hideLoading(); showToast(e.message, "error"); }
+}
+loadDatasets();
+</script>
+</body></html>

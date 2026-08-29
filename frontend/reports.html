@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Reports — AI Data Intelligence</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+<div id="loading-overlay" class="loading-overlay"><div class="loading-box"><div class="spinner"></div><p>Generating PDF report...</p></div></div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>🤖 AI Platform</h2><p>Data Intelligence</p></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><span class="icon">📊</span>Dashboard</a>
+    <a href="dataset.html"><span class="icon">📁</span>Datasets</a>
+    <a href="quality.html"><span class="icon">🔍</span>Data Quality</a>
+    <a href="eda.html"><span class="icon">📈</span>EDA</a>
+    <a href="automl.html"><span class="icon">🤖</span>AutoML</a>
+    <a href="experiments.html"><span class="icon">🧪</span>Experiments</a>
+    <a href="predictions.html"><span class="icon">🔮</span>Predictions</a>
+    <a href="reports.html" class="active"><span class="icon">📑</span>Reports</a>
+  </nav>
+</aside>
+<div class="main">
+  <div class="topbar"><h1>Reports</h1></div>
+  <div class="content">
+    <div class="card" style="max-width:600px">
+      <div class="card-header"><div class="card-title">Generate PDF Report</div></div>
+      <div class="alert alert-info" style="margin-bottom:16px">The report includes dataset summary, data quality analysis, AutoML results, and recommendations.</div>
+      <div class="form-group">
+        <label class="form-label">Select Dataset</label>
+        <select class="form-control" id="ds-sel"><option value="">-- Select --</option></select>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="generateReport()">📥 Download PDF Report</button>
+    </div>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script>
+async function loadDatasets() {
+  const data = await apiJSON("/datasets");
+  const sel = document.getElementById("ds-sel");
+  data.forEach(d => { const o = document.createElement("option"); o.value = d.id; o.textContent = d.name; sel.appendChild(o); });
+}
+async function generateReport() {
+  const id = document.getElementById("ds-sel").value;
+  if (!id) { showToast("Select a dataset", "error"); return; }
+  showLoading("Generating PDF report...");
+  try {
+    const res = await apiFetch(`/datasets/${id}/report`, { method: "POST" });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `report_dataset_${id}.pdf`; a.click();
+    hideLoading(); showToast("Report downloaded!");
+  } catch(e) { hideLoading(); showToast(e.message, "error"); }
+}
+loadDatasets();
+</script>
+</body></html>

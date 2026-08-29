@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Data Quality — AI Data Intelligence</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+<div id="loading-overlay" class="loading-overlay"><div class="loading-box"><div class="spinner"></div><p>Analyzing quality...</p></div></div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>🤖 AI Platform</h2><p>Data Intelligence</p></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><span class="icon">📊</span>Dashboard</a>
+    <a href="dataset.html"><span class="icon">📁</span>Datasets</a>
+    <a href="quality.html" class="active"><span class="icon">🔍</span>Data Quality</a>
+    <a href="eda.html"><span class="icon">📈</span>EDA</a>
+    <a href="automl.html"><span class="icon">🤖</span>AutoML</a>
+    <a href="experiments.html"><span class="icon">🧪</span>Experiments</a>
+    <a href="predictions.html"><span class="icon">🔮</span>Predictions</a>
+    <a href="reports.html"><span class="icon">📑</span>Reports</a>
+  </nav>
+</aside>
+<div class="main">
+  <div class="topbar"><h1>Data Quality</h1></div>
+  <div class="content">
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;gap:12px">
+        <div style="flex:1"><label class="form-label">Dataset</label>
+        <select class="form-control" id="ds-sel"><option value="">-- Select --</option></select></div>
+        <div style="align-self:flex-end"><button class="btn btn-primary" onclick="loadQuality()">Analyze</button></div>
+      </div>
+    </div>
+    <div id="quality-content" style="display:none">
+      <div class="stat-grid" style="margin-bottom:20px">
+        <div class="stat-card"><div class="stat-icon bg-green">✅</div><div class="stat-value" id="q-score">—</div><div class="stat-label">Quality Score</div></div>
+        <div class="stat-card"><div class="stat-icon bg-amber">⚠️</div><div class="stat-value" id="q-issues">—</div><div class="stat-label">Issues Found</div></div>
+        <div class="stat-card"><div class="stat-icon bg-purple">💡</div><div class="stat-value" id="q-recs">—</div><div class="stat-label">Recommendations</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:16px">Issues Detected</div>
+          <div id="issues-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:16px">💡 Recommendations</div>
+          <div id="recs-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script>
+async function loadDatasets() {
+  const data = await apiJSON("/datasets");
+  const sel = document.getElementById("ds-sel");
+  data.forEach(d => { const o = document.createElement("option"); o.value = d.id; o.textContent = d.name; sel.appendChild(o); });
+}
+async function loadQuality() {
+  const id = document.getElementById("ds-sel").value;
+  if (!id) { showToast("Select a dataset", "error"); return; }
+  showLoading("Analyzing data quality...");
+  try {
+    const data = await apiJSON(`/datasets/${id}/quality`);
+    hideLoading();
+    document.getElementById("quality-content").style.display = "block";
+    document.getElementById("q-score").textContent = data.quality_score + "/100";
+    document.getElementById("q-issues").textContent = data.issues.length;
+    document.getElementById("q-recs").textContent = data.recommendations.length;
+    const typeColors = { missing_values: "#F59E0B", outliers: "#EF4444", constant_column: "#6366F1", id_column: "#06B6D4", high_cardinality: "#8B5CF6", duplicates: "#EF4444" };
+    document.getElementById("issues-list").innerHTML = data.issues.length
+      ? data.issues.map(i => `<div class="issue-item"><div class="issue-dot" style="background:${typeColors[i.type]||'#64748B'}"></div>
+          <div><div style="font-weight:600;font-size:13px">${i.column}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${i.type.replace(/_/g," ")} — ${i.detail}</div></div></div>`).join("")
+      : '<div style="text-align:center;color:var(--success);padding:20px">✅ No issues detected!</div>';
+    document.getElementById("recs-list").innerHTML = data.recommendations.length
+      ? data.recommendations.map(r => `<div class="alert alert-warning" style="font-size:12px;margin-bottom:8px">💡 ${r}</div>`).join("")
+      : '<div style="text-align:center;color:var(--success);padding:20px">✅ No recommendations</div>';
+  } catch(e) { hideLoading(); showToast(e.message, "error"); }
+}
+loadDatasets();
+</script>
+</body></html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Experiments — AI Data Intelligence</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>🤖 AI Platform</h2><p>Data Intelligence</p></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><span class="icon">📊</span>Dashboard</a>
+    <a href="dataset.html"><span class="icon">📁</span>Datasets</a>
+    <a href="quality.html"><span class="icon">🔍</span>Data Quality</a>
+    <a href="eda.html"><span class="icon">📈</span>EDA</a>
+    <a href="automl.html"><span class="icon">🤖</span>AutoML</a>
+    <a href="experiments.html" class="active"><span class="icon">🧪</span>Experiments</a>
+    <a href="predictions.html"><span class="icon">🔮</span>Predictions</a>
+    <a href="reports.html"><span class="icon">📑</span>Reports</a>
+  </nav>
+</aside>
+<div class="main">
+  <div class="topbar"><h1>Experiment Tracking</h1></div>
+  <div class="content">
+    <div class="card">
+      <div class="card-header"><div class="card-title">All Experiments</div></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Dataset</th><th>Target</th><th>Type</th><th>Best Model</th><th>Score</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody id="exp-table"><tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted)">No experiments yet. Run AutoML first.</td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script>
+async function load() {
+  const data = await apiJSON("/experiments");
+  const tbody = document.getElementById("exp-table");
+  if (!data.length) return;
+  tbody.innerHTML = data.map(e => `<tr>
+    <td>${e.id}</td>
+    <td>${e.dataset_id}</td>
+    <td><strong>${e.target}</strong></td>
+    <td><span class="badge ${e.problem_type==="classification"?"badge-primary":"badge-success"}">${e.problem_type}</span></td>
+    <td>${e.best_model}</td>
+    <td>${e.best_score !== null ? (e.problem_type==="regression" ? e.best_score.toFixed(4) : (e.best_score*100).toFixed(1)+"%") : "—"}</td>
+    <td style="font-size:11px;color:var(--text-muted)">${new Date(e.created_at).toLocaleString()}</td>
+    <td><a href="predictions.html?dataset=${e.dataset_id}" class="btn btn-sm btn-primary">Predict</a></td>
+  </tr>`).join("");
+}
+load();
+</script>
+</body></html>

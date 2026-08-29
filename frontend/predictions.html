@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Predictions — AI Data Intelligence</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+<div id="loading-overlay" class="loading-overlay"><div class="loading-box"><div class="spinner"></div><p>Predicting...</p></div></div>
+<aside class="sidebar">
+  <div class="sidebar-brand"><h2>🤖 AI Platform</h2><p>Data Intelligence</p></div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"><span class="icon">📊</span>Dashboard</a>
+    <a href="dataset.html"><span class="icon">📁</span>Datasets</a>
+    <a href="quality.html"><span class="icon">🔍</span>Data Quality</a>
+    <a href="eda.html"><span class="icon">📈</span>EDA</a>
+    <a href="automl.html"><span class="icon">🤖</span>AutoML</a>
+    <a href="experiments.html"><span class="icon">🧪</span>Experiments</a>
+    <a href="predictions.html" class="active"><span class="icon">🔮</span>Predictions</a>
+    <a href="reports.html"><span class="icon">📑</span>Reports</a>
+  </nav>
+</aside>
+<div class="main">
+  <div class="topbar"><h1>Predictions</h1></div>
+  <div class="content">
+    <div class="card" style="margin-bottom:20px">
+      <div style="display:flex;gap:12px">
+        <div style="flex:1"><label class="form-label">Dataset (with trained model)</label>
+        <select class="form-control" id="ds-sel" onchange="loadFields()"><option value="">-- Select --</option></select></div>
+      </div>
+    </div>
+    <div class="grid-2" style="align-items:start">
+      <div class="card" id="input-card" style="display:none">
+        <div class="card-header"><div class="card-title">Input Features</div><button class="btn btn-primary" onclick="predict()">🔮 Predict</button></div>
+        <div id="input-fields"></div>
+      </div>
+      <div id="result-area">
+        <div class="card" style="text-align:center;padding:48px">
+          <div style="font-size:48px;margin-bottom:12px">🔮</div>
+          <h3>Ready to predict</h3>
+          <p style="color:var(--text-muted);margin-top:8px">Select a dataset with a trained model, fill in the input values, and click Predict.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="js/api.js"></script>
+<script>
+let currentFields = [];
+
+async function loadDatasets() {
+  const data = await apiJSON("/datasets");
+  const sel = document.getElementById("ds-sel");
+  data.forEach(d => { const o = document.createElement("option"); o.value = d.id; o.textContent = d.name; sel.appendChild(o); });
+  const p = new URLSearchParams(location.search).get("dataset");
+  if (p) { sel.value = p; loadFields(); }
+}
+
+async function loadFields() {
+  const id = document.getElementById("ds-sel").value;
+  if (!id) return;
+  try {
+    const data = await apiJSON(`/datasets/${id}/prediction-fields`);
+    currentFields = data.fields;
+    document.getElementById("input-card").style.display = "block";
+    document.getElementById("input-fields").innerHTML = data.fields.map(f => `
+      <div class="form-group">
+        <label class="form-label">${f.name} <span style="font-size:11px;color:var(--text-muted)">(${f.dtype})</span></label>
+        ${f.samples.length > 3 && !f.dtype.includes("float") && !f.dtype.includes("int")
+          ? `<select class="form-control" id="field-${f.name}"><option value="">-- Select --</option>${f.samples.map(s=>`<option>${s}</option>`).join("")}</select>`
+          : `<input class="form-control" id="field-${f.name}" placeholder="e.g. ${f.samples[0] || ''}">` }
+      </div>`).join("");
+  } catch(e) { showToast("No trained model found for this dataset. Run AutoML first.", "error"); }
+}
+
+async function predict() {
+  const id = document.getElementById("ds-sel").value;
+  const inputData = {};
+  for (const f of currentFields) {
+    const el = document.getElementById(`field-${f.name}`);
+    inputData[f.name] = el?.value || "";
+  }
+  showLoading("Running prediction...");
+  try {
+    const data = await apiJSON(`/datasets/${id}/predict`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(inputData)
+    });
+    hideLoading();
+    const maxContrib = Math.max(...(data.explanation || []).map(e => e.contribution));
+    document.getElementById("result-area").innerHTML = `
+      <div class="card">
+        <div class="prediction-result" style="margin-bottom:20px">
+          <div class="pred-label">Prediction</div>
+          <div class="pred-value">${data.prediction}</div>
+          ${data.probability ? `<div style="margin-top:8px;opacity:.8;font-size:13px">Confidence: ${(Math.max(...data.probability)*100).toFixed(1)}%</div>` : ""}
+        </div>
+        <div class="card-title" style="margin-bottom:12px">🧠 Explanation</div>
+        ${(data.explanation || []).slice(0, 10).map(e => `
+          <div class="feat-bar-wrap">
+            <div class="feat-bar-label"><span>${e.feature}</span><span>${e.contribution.toFixed(4)}</span></div>
+            <div class="progress"><div class="progress-bar" style="width:${maxContrib > 0 ? (e.contribution/maxContrib*100).toFixed(1) : 0}%"></div></div>
+          </div>`).join("")}
+      </div>`;
+    showToast("Prediction complete!");
+  } catch(e) { hideLoading(); showToast(e.message, "error"); }
+}
+
+loadDatasets();
+</script>
+</body></html>
