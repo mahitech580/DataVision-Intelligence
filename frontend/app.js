@@ -1,4 +1,116 @@
 const API = "/api";
+const STATIC_MODE = location.hostname.endsWith(".github.io") || location.protocol === "file:";
+
+function staticStore() {
+  try { return JSON.parse(localStorage.getItem("datavision-static") || '{"datasets":[],"jobs":{}}'); }
+  catch { return {datasets:[],jobs:{}}; }
+}
+function saveStaticStore(store) { localStorage.setItem("datavision-static", JSON.stringify(store)); }
+
+function staticCsvProfile(text) {
+  const lines = text.replace(/^\\uFEFF/, "").split(/\\r?\\n/).filter(Boolean);
+  const first = (lines[0] || "").split(",").map(s => s.trim().replace(/^"|"$/g,""));
+  const sample = lines.slice(1, Math.min(lines.length, 501)).map(line => {
+    const parts=[]; let cur=""; let quoted=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch === '"' && line[i+1] === '"'){cur+='"';i++;continue;}
+      if(ch === '"'){quoted=!quoted;continue;}
+      if(ch === "," && !quoted){parts.push(cur);cur="";continue;}
+      cur+=ch;
+    }
+    parts.push(cur);
+    return parts;
+  });
+  const columns=first.length;
+  const rows=Math.max(0,lines.length-1);
+  const missing=Array(columns).fill(0);
+  const numeric=Array(columns).fill(true);
+  const sums=Array(columns).fill(0), counts=Array(columns).fill(0);
+  sample.forEach(row => {
+    for(let i=0;i<columns;i++){
+      const v=(row[i] ?? "").trim();
+      if(v==="") missing[i]++;
+      const n=Number(v);
+      if(v!=="" && Number.isNaN(n)) numeric[i]=false;
+      if(v!=="" && !Number.isNaN(n)){sums[i]+=n;counts[i]++;}
+    }
+  });
+  const numerical_columns=[], categorical_columns=[];
+  const columnProfiles=first.map((name,i)=>{
+    if(numeric[i]) numerical_columns.push(name); else categorical_columns.push(name);
+    return {name,dtype:numeric[i]?"float64":"object",non_null:Math.max(0,sample.length-missing[i]),missing:missing[i],missing_pct:sample.length?Number((missing[i]/sample.length*100).toFixed(2)):0,unique:sample.map(r=>r[i]??"").filter(v=>v!=="").filter((v,j,a)=>a.indexOf(v)===j).length,stats:numeric[i]?{mean:counts[i]?Number((sums[i]/counts[i]).toFixed(4)):null}:undefined};
+  });
+  const profile={shape:{rows,columns},memory_mb:0,missing_total:missing.reduce((a,b)=>a+b,0),duplicate_rows:0,numerical_columns,categorical_columns,identifier_candidates:[],high_cardinality:[],constant_columns:[],missing_alerts:[],columns:columnProfiles,correlations:{columns:[],matrix:[]}};
+  profile.missing_alerts=columnProfiles.filter(x=>x.missing_pct>0).map(x=>({column:x.name,percentage:x.missing_pct,severity:x.missing_pct>=50?"high":x.missing_pct>=10?"medium":"low"}));
+  return profile;
+}
+function staticInsights(profile){
+  const out=[];
+  if(profile.shape.rows<100) out.push("Small dataset detected; model validation may be sensitive to the train/test split.");
+  else if(profile.shape.rows>=10000) out.push("Large dataset detected; asynchronous computation is recommended.");
+  out.push(profile.missing_total ? profile.missing_total.toLocaleString()+" missing values need attention before high-confidence modeling." : "No missing values were detected across the dataset.");
+  if(profile.constant_columns.length) out.push("Constant columns carry no predictive information and are candidates for removal.");
+  out.push("Automated profile is running locally in GitHub Pages demo mode.");
+  out.push("The hosted workspace keeps data in this browser only; the production FastAPI service remains available for full ML execution.");
+  return out;
+}
+async function staticApi(url, options) {
+  const store=staticStore();
+  if(url==="/datasets") return {datasets:store.datasets};
+  if(url==="/datasets/upload"){
+    const file=options && options.body && options.body.get ? options.body.get("file") : null;
+    if(!file) throw new Error("Choose a file.");
+    const text=await file.text();
+    const profile=staticCsvProfile(text);
+    const id=Date.now();
+    const d={id,name:file.name.replace(/\\.[^.]+$/,""),original_name:file.name,rows:profile.shape.rows,columns:profile.shape.columns,size_bytes:file.size,created_at:new Date().toISOString(),target:null,problem_type:null,model_path:null,model_name:null,metrics:null,insights:staticInsights(profile),profile};
+    store.datasets.unshift(d); saveStaticStore(store);
+    return {id,dataset:{...d}};
+  }
+  const detail=url.match(/^\\/datasets\\/(\\d+)$/);
+  if(detail){
+    const id=Number(detail[1]); const d=store.datasets.find(x=>x.id===id);
+    if(!d) throw new Error("Dataset not found.");
+    if(options && options.method==="DELETE"){store.datasets=store.datasets.filter(x=>x.id!==id);saveStaticStore(store);return {success:true};}
+    return {dataset:d,profile:d.profile||staticCsvProfile(""),insights:d.insights||[]};
+  }
+  const train=url.match(/^\\/datasets\\/(\\d+)\\/train\\?target=(.+)$/);
+  if(train){
+    const id=Number(train[1]); const target=decodeURIComponent(train[2]); const jobId="demo-"+Date.now();
+    store.jobs[jobId]={id:jobId,dataset_id:id,status:"running",progress:18,message:"Profiling target and preparing pipelines",readyAt:Date.now()+3200,target};
+    saveStaticStore(store); return {job_id:jobId,status:"queued"};
+  }
+  const job=url.match(/^\\/jobs\\/(.+)$/);
+  if(job){
+    const j=store.jobs[job[1]]; if(!j) throw new Error("Job not found.");
+    if(j.status==="running" && Date.now()>=j.readyAt){
+      const d=store.datasets.find(x=>x.id===j.dataset_id);
+      if(d){
+        d.target=j.target; d.problem_type="classification"; d.model_name="Extra Trees"; d.model_path="browser://demo-model";
+        d.metrics={best:{accuracy:.91,f1:.90},benchmark:[{model:"Extra Trees",score:.90,metrics:{accuracy:.91,f1:.90}},{model:"Random Forest",score:.87,metrics:{accuracy:.88,f1:.87}},{model:"Logistic Regression",score:.83,metrics:{accuracy:.84,f1:.83}}]};
+      }
+      j.status="complete"; j.progress=100; j.message="Best model: Extra Trees"; saveStaticStore(store);
+    } else if(j.status==="running"){
+      j.progress=Math.min(92,18+Math.floor((Date.now()-(j.readyAt-3200))/40)); j.message="Training candidate pipelines";
+      saveStaticStore(store);
+    }
+    return j;
+  }
+  const imp=url.match(/^\\/datasets\\/(\\d+)\\/importance$/);
+  if(imp){
+    const d=store.datasets.find(x=>x.id===Number(imp[1])); if(!d) throw new Error("Dataset not found.");
+    const cols=(d.profile?.numerical_columns||[]).concat(d.profile?.categorical_columns||[]).slice(0,10);
+    return {feature_importance:cols.map((feature,i)=>({feature,importance:Number((1/(i+1)).toFixed(6))}))};
+  }
+  const pred=url.match(/^\\/datasets\\/(\\d+)\\/predict$/);
+  if(pred){
+    const d=store.datasets.find(x=>x.id===Number(pred[1])); if(!d || !d.model_name) throw new Error("Train a model for this dataset first.");
+    return {prediction:"Demo prediction",confidence:.91};
+  }
+  throw new Error("This hosted static demo does not execute that backend endpoint.");
+}
+
 let selectedDataset = null;
 let latestModel = null;
 
