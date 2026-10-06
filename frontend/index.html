@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#070b12">
+  <title>DataVision Intelligence</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">DV</div><div><strong>DataVision</strong><span>Intelligence</span></div></div>
+      <div class="eyebrow">WORKSPACE</div>
+      <nav>
+        <button class="nav active" data-view="overview"><span>◈</span> Overview</button>
+        <button class="nav" data-view="datasets"><span>▦</span> Data Workbench</button>
+        <button class="nav" data-view="models"><span>◇</span> Model Lab</button>
+        <button class="nav" data-view="stream"><span>◉</span> Live Stream</button>
+      </nav>
+      <div class="sidebar-foot"><div class="status-dot"></div><div><strong id="systemStatus">Online</strong><span>Realtime engine</span></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div><div class="eyebrow">AI DATA INTELLIGENCE</div><h1 id="pageTitle">Operational overview</h1></div>
+        <div class="top-actions"><button class="ghost" id="refreshBtn">↻ Refresh</button><button class="primary" id="uploadBtn">＋ Ingest data</button><input id="fileInput" type="file" accept=".csv,.xlsx,.xls" hidden></div>
+      </header>
+
+      <section class="view active" id="view-overview">
+        <div class="hero"><div><div class="eyebrow">REALTIME ANALYTICS WORKSPACE</div><h2>Turn raw data into decisions.</h2><p>Profile, diagnose, model, explain and predict from one intelligent workflow.</p></div><div class="hero-chip"><span class="pulse"></span><span>Live event pipeline</span></div></div>
+        <div class="metrics" id="metrics"></div>
+        <div class="grid-two">
+          <div class="panel"><div class="panel-head"><div><div class="eyebrow">DATASET INTELLIGENCE</div><h3>Latest data signal</h3></div><button class="ghost small" onclick="showView('datasets')">Open workbench →</button></div><div id="latestSignal" class="signal-empty">Ingest a dataset to activate intelligent profiling.</div></div>
+          <div class="panel"><div class="panel-head"><div><div class="eyebrow">MODEL LAB</div><h3>Model readiness</h3></div><button class="ghost small" onclick="showView('models')">Open model lab →</button></div><div id="modelReadiness" class="signal-empty">Train a model from the Data Workbench.</div></div>
+        </div>
+        <div class="panel"><div class="panel-head"><div><div class="eyebrow">ACTIVITY</div><h3>Realtime operational feed</h3></div><span class="live-label"><span class="pulse"></span> streaming</span></div><div id="activityFeed" class="feed"></div></div>
+      </section>
+
+      <section class="view" id="view-datasets">
+        <div class="section-head"><div><div class="eyebrow">DATA WORKBENCH</div><h2>Datasets & intelligence</h2><p>Upload data, inspect quality, discover patterns and select a target for AutoML.</p></div></div>
+        <div class="grid-two">
+          <div class="panel"><div class="dropzone" id="dropzone"><div class="drop-icon">↑</div><strong>Drop CSV or Excel here</strong><span>or click to browse · max 50 MB</span></div></div>
+          <div class="panel"><div class="panel-head"><div><div class="eyebrow">PERSISTED DATASETS</div><h3>Inventory</h3></div></div><div id="datasetList" class="dataset-list"></div></div>
+        </div>
+        <div class="panel" id="analysisPanel" hidden>
+          <div class="panel-head"><div><div class="eyebrow">AUTOMATED ANALYSIS</div><h3 id="analysisTitle">Dataset profile</h3></div><button class="ghost small" id="deleteDatasetBtn">Delete dataset</button></div>
+          <div id="profileSummary" class="profile-summary"></div>
+          <div class="grid-two analysis-grid"><div><h4>Intelligent signals</h4><div id="insights" class="insights"></div></div><div><h4>Numeric relationships</h4><div id="correlation" class="correlation"></div></div></div>
+          <div class="training-box"><div><div class="eyebrow">AUTOML</div><h3>Build a predictive model</h3><p>Choose a target column. The engine infers classification or regression and compares multiple pipelines.</p></div><div class="train-controls"><select id="targetSelect"></select><button class="primary" id="trainBtn">Run AutoML</button></div></div>
+          <div id="jobProgress" class="job-progress" hidden><div class="progress-track"><div id="progressBar"></div></div><div><span id="jobMessage">Queued</span><span id="progressPct">0%</span></div></div>
+        </div>
+      </section>
+
+      <section class="view" id="view-models">
+        <div class="section-head"><div><div class="eyebrow">MODEL LAB</div><h2>Models, signals & prediction</h2><p>Inspect the latest trained model, its metrics and top explanatory features.</p></div></div>
+        <div class="grid-two"><div class="panel"><div class="panel-head"><div><div class="eyebrow">MODEL RANKING</div><h3>Latest benchmark</h3></div></div><div id="modelTable" class="model-table"></div></div><div class="panel"><div class="panel-head"><div><div class="eyebrow">EXPLAINABILITY</div><h3>Top feature signals</h3></div></div><div id="importance" class="importance"></div></div></div>
+        <div class="panel" id="predictPanel" hidden><div class="panel-head"><div><div class="eyebrow">PREDICTION</div><h3>Run a model inference</h3></div></div><div id="predictFields" class="predict-fields"></div><button class="primary" id="predictBtn">Generate prediction</button><div id="predictionResult" class="prediction-result"></div></div>
+      </section>
+
+      <section class="view" id="view-stream"><div class="section-head"><div><div class="eyebrow">LIVE STREAM</div><h2>Realtime system events</h2><p>Training and ingestion events arrive through Server-Sent Events.</p></div></div><div class="panel"><div id="fullFeed" class="feed full"></div></div></section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
