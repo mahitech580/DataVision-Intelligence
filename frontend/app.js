@@ -61,8 +61,7 @@ async function staticApi(url, options) {
   if(url==="/datasets/upload"){
     const file=options && options.body && options.body.get ? options.body.get("file") : null;
     if(!file) throw new Error("Choose a file.");
-    const text=await file.text();
-    const profile=staticCsvProfile(text);
+    let profile;\n    if (file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls")) {\n      if (!window.XLSX) throw new Error("Excel parser is unavailable. Please upload CSV.");\n      const book=XLSX.read(await file.arrayBuffer(),{type:"array"});\n      const first=book.Sheets[book.SheetNames[0]];\n      const csv=XLSX.utils.sheet_to_csv(first);\n      profile=staticCsvProfile(csv);\n    } else {\n      profile=staticCsvProfile(await file.text());\n    }
     const id=Date.now();
     const d={id,name:file.name.replace(/\\.[^.]+$/,""),original_name:file.name,rows:profile.shape.rows,columns:profile.shape.columns,size_bytes:file.size,created_at:new Date().toISOString(),target:null,problem_type:null,model_path:null,model_name:null,metrics:null,insights:staticInsights(profile),profile};
     store.datasets.unshift(d); saveStaticStore(store);
