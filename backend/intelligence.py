@@ -253,8 +253,26 @@ def feature_importance(model_bundle: dict[str, Any]) -> list[dict[str, Any]]:
         values = np.abs(coef).mean(axis=0) if coef.ndim > 1 else np.abs(coef)
     if values is None:
         return []
-    pairs = sorted(zip(names, values.tolist()), key=lambda x: x[1], reverse=True)[:20]
-    return [{"feature": str(name), "importance": round(float(value), 6)} for name, value in pairs]
+
+    raw_features = model_bundle["features"]
+    aggregated: dict[str, float] = {str(feature): 0.0 for feature in raw_features}
+    for name, value in zip(names, values.tolist()):
+        clean = str(name)
+        matched = next(
+            (feature for feature in sorted(raw_features, key=len, reverse=True)
+             if clean == f"numeric__{feature}" or clean.startswith(f"categorical__{feature}_")),
+            None,
+        )
+        if matched is None:
+            matched = clean.split("__", 1)[-1]
+        aggregated[matched] = aggregated.get(matched, 0.0) + float(value)
+
+    pairs = sorted(aggregated.items(), key=lambda x: x[1], reverse=True)[:20]
+    total = sum(value for _, value in pairs) or 1.0
+    return [
+        {"feature": str(name), "importance": round(float(value), 6), "importance_pct": round(float(value / total * 100), 2)}
+        for name, value in pairs
+    ]
 
 
 def predict(model_bundle: dict[str, Any], inputs: dict[str, Any]) -> dict[str, Any]:
