@@ -48,7 +48,31 @@ def home():
 
 @app.get("/health")
 def health():
-    return {"status": "healthy", "service": "DataVision Intelligence", "version": "2.0.0"}
+    checks = {}
+    try:
+        with get_conn() as conn:
+            conn.execute("SELECT 1").fetchone()
+        checks["database"] = "ok"
+    except Exception:
+        checks["database"] = "error"
+
+    checks["uploads"] = "ok" if DATA_DIR.is_dir() and DATA_DIR.exists() else "error"
+    checks["models"] = "ok" if MODEL_DIR.is_dir() and MODEL_DIR.exists() else "error"
+    healthy = all(value == "ok" for value in checks.values())
+
+    return {
+        "status": "healthy" if healthy else "degraded",
+        "service": "DataVision Intelligence",
+        "version": "2.0.0",
+        "checks": checks,
+        "jobs": {
+            "queued": sum(1 for item in JOBS.values() if item.get("status") == "queued"),
+            "running": sum(1 for item in JOBS.values() if item.get("status") == "running"),
+            "complete": sum(1 for item in JOBS.values() if item.get("status") == "complete"),
+            "failed": sum(1 for item in JOBS.values() if item.get("status") == "failed"),
+        },
+        "events_buffered": len(EVENTS),
+    }
 
 
 @app.get("/api/stream")
