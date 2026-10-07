@@ -5,6 +5,7 @@ import json
 import threading
 import uuid
 from collections import deque
+from time import time
 from pathlib import Path
 
 import joblib
@@ -27,6 +28,31 @@ init_db()
 EVENTS = deque(maxlen=250)
 EVENT_LOCK = threading.Lock()
 JOBS: dict[str, dict] = {}
+JOB_TTL_SECONDS = 60 * 60
+MAX_RETAINED_JOBS = 200
+
+def prune_jobs() -> None:
+    now = time()
+    finished = [
+        (job_id, item)
+        for job_id, item in JOBS.items()
+        if item.get("status") in {"complete", "failed"} and now - item.get("created_at", now) > JOB_TTL_SECONDS
+    ]
+    for job_id, _ in finished:
+        JOBS.pop(job_id, None)
+
+    if len(JOBS) <= MAX_RETAINED_JOBS:
+        return
+    removable = sorted(
+        (
+            (job_id, item.get("created_at", 0))
+            for job_id, item in JOBS.items()
+            if item.get("status") in {"complete", "failed"}
+        ),
+        key=lambda pair: pair[1],
+    )
+    for job_id, _ in removable[: max(0, len(JOBS) - MAX_RETAINED_JOBS)]:
+        JOBS.pop(job_id, None)
 
 
 def emit(kind: str, message: str, progress: int | None = None, job_id: str | None = None):
@@ -155,11 +181,12 @@ def dataset_detail(dataset_id: int):
 
 @app.post("/api/datasets/{dataset_id}/train")
 def train(dataset_id: int, target: str, background_tasks: BackgroundTasks):
+    prune_jobs()
     row = get_dataset(dataset_id)
     if not row:
         raise HTTPException(status_code=404, detail="Dataset not found.")
     job_id = uuid.uuid4().hex
-    JOBS[job_id] = {"id": job_id, "dataset_id": dataset_id, "status": "queued", "progress": 0, "message": "Queued"}
+    JOBS[job_id] = {"id": job_id, "dataset_id": dataset_id, "status": "queued", "progress": 0, "message": "Queued", "created_at": time()}
     emit("job", f"AutoML job queued for dataset #{dataset_id}.", 0, job_id)
 
     def runner():
@@ -180,6 +207,7 @@ def train(dataset_id: int, target: str, background_tasks: BackgroundTasks):
 
 @app.get("/api/jobs/{job_id}")
 def job(job_id: str):
+    prune_jobs()
     item = JOBS.get(job_id)
     if not item:
         raise HTTPException(status_code=404, detail="Job not found.")
