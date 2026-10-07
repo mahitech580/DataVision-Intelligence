@@ -148,6 +148,7 @@ dropzone.addEventListener("drop", function(e){ if(e.dataTransfer.files[0]) uploa
 dropzone.addEventListener("click", function(){ $("fileInput").click(); });
 
 async function getJson(url, options) {
+  if (STATIC_MODE) return staticApi(url, options);
   const res = await fetch(API + url, options);
   const data = await res.json().catch(function(){ return {}; });
   if(!res.ok) throw new Error(data.detail || "Request failed");
@@ -315,6 +316,17 @@ function addEvent(item){
   while($("fullFeed").children.length>100)$("fullFeed").lastElementChild.remove();
 }
 function connectStream(){
+  if(STATIC_MODE){
+    $("systemStatus").textContent="Local demo";
+    const emitLocal=function(){
+      const list=staticStore().datasets;
+      const d=list[0];
+      addEvent({kind:"local",message:d ? "Browser-local workspace ready for "+d.name : "Browser-local workspace ready",progress:d ? 100 : null});
+    };
+    emitLocal();
+    window.setInterval(emitLocal, 15000);
+    return;
+  }
   const source=new EventSource(API+"/stream");
   source.onopen=function(){$("systemStatus").textContent="Online";};
   source.onmessage=function(e){try{addEvent(JSON.parse(e.data));}catch{}};
