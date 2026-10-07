@@ -290,8 +290,15 @@ def predict(model_bundle: dict[str, Any], inputs: dict[str, Any]) -> dict[str, A
 
     frame = pd.DataFrame([row])
     prediction = model_bundle["pipeline"].predict(frame)[0]
-    result: dict[str, Any] = {"prediction": str(prediction)}
+    result: dict[str, Any] = {"prediction": str(prediction), "target": model_bundle.get("target")}
     pipe = model_bundle["pipeline"]
     if hasattr(pipe, "predict_proba"):
-        result["confidence"] = round(float(np.max(pipe.predict_proba(frame)[0])), 4)
+        probabilities = pipe.predict_proba(frame)[0]
+        classes = getattr(pipe.named_steps.get("model"), "classes_", [])
+        ranked = sorted(zip(classes, probabilities), key=lambda pair: float(pair[1]), reverse=True)
+        result["confidence"] = round(float(np.max(probabilities)), 4)
+        result["class_probabilities"] = [
+            {"class": str(label), "probability": round(float(prob), 4)}
+            for label, prob in ranked[:5]
+        ]
     return result
