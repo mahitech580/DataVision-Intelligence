@@ -89,11 +89,17 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
         corr = df[numerical].corr().round(3)
         correlations = {"columns": [str(c) for c in corr.columns], "matrix": corr.fillna(0).values.tolist()}
 
+    missing_ratio = float(missing_total / max(rows * columns, 1))
+    duplicate_ratio = float(duplicate_rows / max(rows, 1))
+    quality_score = round(max(0.0, min(100.0, 100 - missing_ratio * 55 - duplicate_ratio * 30 - len(constant_columns) * 4 - len(high_cardinality) * 2)), 1)
+
     return {
         "shape": {"rows": int(rows), "columns": int(columns)},
         "memory_mb": round(float(df.memory_usage(deep=True).sum() / 1024 / 1024), 3),
         "missing_total": missing_total,
         "duplicate_rows": duplicate_rows,
+        "duplicate_pct": round(duplicate_ratio * 100, 2),
+        "data_quality_score": quality_score,
         "numerical_columns": [str(x) for x in numerical],
         "categorical_columns": [str(x) for x in categorical],
         "identifier_candidates": identifier_candidates,
