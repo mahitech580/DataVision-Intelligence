@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 
 import joblib
@@ -198,10 +199,12 @@ def train_automl(df: pd.DataFrame, target: str, dataset_id: int, model_dir: str 
     models = _models(problem_type)
     for index, (name, estimator) in enumerate(models.items(), start=1):
         progress("training", f"Training {name} ({index}/{len(models)})", int((index - 1) / len(models) * 85))
+        started = perf_counter()
         try:
             pipeline = Pipeline([("preprocessor", _preprocessor(df, features)), ("model", estimator)])
             pipeline.fit(X_train, y_train)
             pred = pipeline.predict(X_test)
+            duration_ms = round((perf_counter() - started) * 1000, 1)
             if problem_type == "classification":
                 metrics = {"accuracy": round(float(accuracy_score(y_test, pred)), 4), "f1": round(float(f1_score(y_test, pred, average="weighted", zero_division=0)), 4)}
                 score = metrics["f1"]
@@ -209,12 +212,12 @@ def train_automl(df: pd.DataFrame, target: str, dataset_id: int, model_dir: str 
                 mse = mean_squared_error(y_test, pred)
                 metrics = {"r2": round(float(r2_score(y_test, pred)), 4), "mae": round(float(mean_absolute_error(y_test, pred)), 4), "rmse": round(float(np.sqrt(mse)), 4)}
                 score = metrics["r2"]
-            item = {"model": name, "status": "completed", "score": round(float(score), 4), "metrics": metrics}
+            item = {"model": name, "status": "completed", "score": round(float(score), 4), "metrics": metrics, "duration_ms": duration_ms}
             results.append(item)
             if best is None or score > best["score"]:
                 best = {"name": name, "score": float(score), "pipeline": pipeline, "metrics": metrics}
         except Exception as exc:
-            results.append({"model": name, "status": "failed", "score": None, "metrics": {}, "error": str(exc)[:300]})
+            results.append({"model": name, "status": "failed", "score": None, "metrics": {}, "duration_ms": round((perf_counter() - started) * 1000, 1), "error": str(exc)[:300]})
             progress("warning", f"{name} skipped: {str(exc)[:120]}", int(index / len(models) * 85))
 
     if best is None:
