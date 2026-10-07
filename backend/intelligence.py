@@ -185,8 +185,14 @@ def train_automl(df: pd.DataFrame, target: str, dataset_id: int, model_dir: str 
 
     problem_type = infer_problem_type(df[target])
     y = df[target].astype(str) if problem_type == "classification" else df[target]
-    stratify = y if problem_type == "classification" and y.nunique() > 1 else None
-    X_train, X_test, y_train, y_test = train_test_split(df[features], y, test_size=0.2, random_state=42, stratify=stratify)
+    stratify = None
+    if problem_type == "classification" and y.nunique() > 1:
+        class_counts = y.value_counts()
+        if int(class_counts.min()) >= 2:
+            stratify = y
+    X_train, X_test, y_train, y_test = train_test_split(
+        df[features], y, test_size=0.2, random_state=42, stratify=stratify
+    )
 
     results, best = [], None
     models = _models(problem_type)
