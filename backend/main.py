@@ -11,6 +11,7 @@ import joblib
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 
 from backend.intelligence import feature_importance, generate_insights, load_dataframe, predict, profile_dataframe, train_automl
 from backend.store import DATA_DIR, MODEL_DIR, create_dataset, get_conn, get_dataset, init_db, list_datasets, update_dataset_analysis
@@ -19,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 
 app = FastAPI(title="DataVision Intelligence", version="2.0.0", description="Advanced realtime AI-powered data intelligence platform.")
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
 init_db()
 
