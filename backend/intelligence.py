@@ -71,7 +71,7 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
             item["top_values"] = [{"value": str(k), "count": int(v)} for k, v in s.value_counts(dropna=True).head(5).items()]
         column_profiles.append(item)
 
-    identifier_candidates, high_cardinality, constant_columns, missing_alerts = [], [], [], []
+    identifier_candidates, high_cardinality, constant_columns, missing_alerts, outlier_alerts = [], [], [], [], []
     for col in df.columns:
         ratio = float(df[col].nunique(dropna=False) / len(df)) if len(df) else 0
         if ratio >= 0.98 and len(df) > 10:
@@ -83,6 +83,16 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
         miss = float(df[col].isna().mean() * 100)
         if miss > 0:
             missing_alerts.append({"column": str(col), "percentage": round(miss, 2), "severity": "high" if miss >= 50 else "medium" if miss >= 10 else "low"})
+        if pd.api.types.is_numeric_dtype(df[col]) and df[col].nunique(dropna=True) >= 8:
+            clean = df[col].dropna()
+            q1, q3 = clean.quantile([0.25, 0.75])
+            iqr = float(q3 - q1)
+            if iqr > 0:
+                low, high = float(q1 - 1.5 * iqr), float(q3 + 1.5 * iqr)
+                count = int(((clean < low) | (clean > high)).sum())
+                if count:
+                    pct = round(count / max(len(clean), 1) * 100, 2)
+                    outlier_alerts.append({"column": str(col), "count": count, "percentage": pct, "severity": "high" if pct >= 10 else "medium" if pct >= 5 else "low"})
 
     correlations: dict[str, Any] = {"columns": [], "matrix": []}
     if len(numerical) >= 2:
@@ -106,6 +116,7 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
         "high_cardinality": high_cardinality,
         "constant_columns": constant_columns,
         "missing_alerts": missing_alerts,
+        "outlier_alerts": outlier_alerts,
         "columns": column_profiles,
         "correlations": correlations,
     }
@@ -128,6 +139,9 @@ def generate_insights(profile: dict[str, Any]) -> list[str]:
         insights.append("Potential identifier columns were detected; excluding them can reduce spurious model patterns.")
     if profile["high_cardinality"]:
         insights.append("High-cardinality categorical features may need targeted encoding or aggregation.")
+    if profile.get("outlier_alerts"):
+        top_outlier = profile["outlier_alerts"][0]
+        insights.append(f"Potential outliers affect {top_outlier['column']} ({top_outlier['percentage']}% of non-null values); investigate before modeling.")
     insights.append(f"The dataset contains {cols} columns across {rows:,} records with {len(profile['numerical_columns'])} numeric and {len(profile['categorical_columns'])} categorical fields.")
     return insights[:8]
 
