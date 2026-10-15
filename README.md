@@ -329,63 +329,88 @@ Use the documentation to inspect the routes actually registered by the running b
 
 ## Realtime Training Architecture
 
-The intended asynchronous workflow is:
-
-1. A user submits a training request.
-2. The backend creates a training job.
-3. The job evaluates candidate machine learning pipelines.
-4. Progress and lifecycle events are published through the SSE endpoint.
-5. The browser displays updates as they arrive.
-6. Completed model artifacts and evaluation results are saved by the configured backend.
-7. The prediction interface uses the selected trained model.
+The API creates a training job and returns a job ID. The client then polls job status while subscribing to the event stream for live updates.
 
 ```text
 Browser
-   │
-   ├── POST training request
-   │
-   ▼
-FastAPI
-   │
-   ├── Create training job
-   │
-   ▼
-Background Worker
-   │
-   ├── Preprocess data
-   ├── Evaluate pipelines
-   ├── Compare metrics
-   └── Persist selected model
-   │
-   ├── Publish job events
-   ▼
-/api/stream
-   │
-   ▼
-Browser Activity Feed
+  │
+  ├── POST /api/datasets/{dataset_id}/train?target=column_name
+  │
+  ▼
+FastAPI application
+  │
+  ├── Create in-memory job record
+  ├── Schedule a FastAPI BackgroundTask
+  │
+  ▼
+Model training
+  ├── Prepare train/test split
+  ├── Evaluate candidate pipelines
+  ├── Persist the best model artifact
+  └── Save metrics and dataset metadata
+  │
+  ├── GET /api/jobs/{job_id}
+  └── GET /api/stream  ─────► browser activity feed
 ```
 
-The actual worker implementation, job storage, event schema, and stream endpoint must be verified against the source code and deployment configuration.
+The current implementation uses FastAPI `BackgroundTasks` and in-memory job/event dictionaries. It does not yet use a durable queue or persistent job store. Jobs and buffered events can be lost if the process restarts, and CPU-heavy training can compete with API requests. A production deployment should use a dedicated worker and durable queue.
 
-## API Capabilities
+The SSE endpoint streams JSON messages with fields such as `id`, `kind`, `message`, `progress`, and `job_id`. The browser should treat the job-status endpoint as the authoritative source for whether a job has completed and its results have been saved.
 
-The application is organized around these functional areas:
+## API Reference
 
-| Capability | Purpose |
-|---|---|
-| Health | Report application and dependency health |
-| Dataset ingestion | Accept and register uploaded datasets |
-| Dataset profiling | Return structural and statistical summaries |
-| Data quality | Report missingness, duplicates, and potential issues |
-| Exploratory analysis | Return feature summaries and numeric relationships |
-| AutoML | Start or execute model-training jobs |
-| Job status | Track training state and progress |
-| Model comparison | Return candidate models and evaluation metrics |
-| Explainability | Return supported feature-importance information |
-| Prediction | Run inference using a persisted trained model |
-| Event streaming | Publish realtime lifecycle events |
+The FastAPI application currently exposes these routes:
 
-These names describe the API capabilities; use `/docs` to confirm the exact paths, HTTP methods, schemas, and availability implemented in the current version.
+| Method | Route | Purpose |
+|---|---|---|
+| GET | `/` | Serve the frontend workspace |
+| GET | `/health` | Check application, SQLite, upload storage, and model-directory status |
+| GET | `/docs` | Interactive OpenAPI documentation |
+| GET | `/api/datasets` | List persisted dataset metadata and saved metrics |
+| POST | `/api/datasets/upload` | Upload CSV/XLSX/XLS using multipart field `file` |
+| GET | `/api/datasets/{dataset_id}` | Return dataset metadata, profile, and insights |
+| DELETE | `/api/datasets/{dataset_id}` | Delete dataset and associated model artifact |
+| POST | `/api/datasets/{dataset_id}/train?target={column}` | Queue AutoML and return a `job_id` |
+| GET | `/api/jobs/{job_id}` | Poll queued/running/completed/failed job state |
+| GET | `/api/datasets/{dataset_id}/importance` | Return supported feature-importance values |
+| POST | `/api/datasets/{dataset_id}/predict` | Run inference using feature-name/value JSON |
+| GET | `/api/stream` | Subscribe to realtime server-sent events |
+
+### Upload request
+
+The upload endpoint expects `multipart/form-data` with a file field named `file`. CSV, XLSX, and XLS formats are accepted, with a 50 MB request-file limit enforced by the application.
+
+### Train request
+
+Send a POST request to the dataset-specific route with the target column in the query string:
+
+```http
+POST /api/datasets/12/train?target=churn
+```
+
+The response returns a job identifier and initial state. Poll `GET /api/jobs/{job_id}` until the status becomes `complete` or `failed`. A completed job includes its training result and benchmark metrics.
+
+### Prediction request
+
+Send the feature values directly as a JSON object. The keys must match the feature names expected by the persisted model.
+
+```json
+{
+  "age": 42,
+  "plan": "premium",
+  "monthly_usage": 18.5
+}
+```
+
+The response includes the predicted value and, for supported classification estimators, confidence and ranked class probabilities.
+
+### Frontend and dataset persistence
+
+The root route serves `frontend/index.html`; the CSS and JavaScript are served from `/assets/styles.css` and `/assets/app.js`. Dataset metadata, profile summaries, training metadata, and saved model paths are stored in SQLite, while uploaded files and model artifacts live under `data/uploads/` and `models/`.
+
+The list and detail APIs do not return complete raw dataset rows. After a browser reload, the interface restores persisted metadata and profile summaries. The browser-side row preview remains available for files uploaded during the current page session.
+
+The current backend does not expose a separate background worker, durable queue, or persistent job-history API. Jobs and the SSE event buffer are in process memory and are cleared by a server restart.
 
 ## Machine Learning Design
 
