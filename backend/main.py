@@ -64,7 +64,15 @@ def emit(kind: str, message: str, progress: int | None = None, job_id: str | Non
 
 def job_progress(job_id: str):
     def callback(kind: str, message: str, progress: int):
-        JOBS[job_id] = {**JOBS.get(job_id, {}), "status": "running" if kind != "complete" else "complete", "message": message, "progress": progress}
+        # Keep the job running until the runner has persisted its result and
+        # atomically publishes the final result payload. Otherwise a client
+        # can poll "complete" before JOBS[job_id]["result"] has been assigned.
+        JOBS[job_id] = {
+            **JOBS.get(job_id, {}),
+            "status": "running",
+            "message": message,
+            "progress": progress,
+        }
         emit(kind, message, progress, job_id)
     return callback
 
@@ -129,18 +137,41 @@ async def stream():
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+def public_dataset(row: dict) -> dict:
+    """Return dataset metadata without exposing server filesystem paths."""
+    metrics = row.get("metrics")
+    if metrics is None and row.get("metrics_json"):
+        try:
+            metrics = json.loads(row["metrics_json"])
+        except (TypeError, json.JSONDecodeError):
+            metrics = None
+
+    insights = row.get("insights")
+    if insights is None and row.get("insights_json"):
+        try:
+            insights = json.loads(row["insights_json"])
+        except (TypeError, json.JSONDecodeError):
+            insights = []
+
+    return {
+        "id": row.get("id"),
+        "name": row.get("name"),
+        "original_name": row.get("original_name"),
+        "rows": row.get("rows"),
+        "columns": row.get("columns"),
+        "size_bytes": row.get("size_bytes"),
+        "created_at": row.get("created_at"),
+        "target": row.get("target"),
+        "problem_type": row.get("problem_type"),
+        "model_name": row.get("model_name"),
+        "metrics": metrics,
+        "insights": insights or [],
+    }
+
+
 @app.get("/api/datasets")
 def datasets():
-    rows = list_datasets()
-    clean = []
-    for row in rows:
-        row["metrics"] = json.loads(row["metrics_json"]) if row.get("metrics_json") else None
-        row["insights"] = json.loads(row["insights_json"]) if row.get("insights_json") else []
-        row.pop("metrics_json", None)
-        row.pop("insights_json", None)
-        clean.append(row)
-    return {"datasets": clean}
-
+    return {"datasets": [public_dataset(row) for row in list_datasets()]}
 
 @app.post("/api/datasets/upload")
 async def upload_dataset(file: UploadFile = File(...)):
@@ -174,10 +205,17 @@ def dataset_detail(dataset_id: int):
     row = get_dataset(dataset_id)
     if not row:
         raise HTTPException(status_code=404, detail="Dataset not found.")
-    df = load_dataframe(row["path"])
-    profile = profile_dataframe(df)
-    return {"dataset": row, "profile": profile, "insights": generate_insights(profile)}
+    try:
+        df = load_dataframe(row["path"])
+        profile = profile_dataframe(df)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="The stored dataset could not be read.") from exc
 
+    return {
+        "dataset": public_dataset(row),
+        "profile": profile,
+        "insights": generate_insights(profile),
+    }
 
 @app.post("/api/datasets/{dataset_id}/train")
 def train(dataset_id: int, target: str, background_tasks: BackgroundTasks):
