@@ -37,7 +37,15 @@ def _safe_float(value: Any) -> float | None:
 
 
 def infer_problem_type(series: pd.Series) -> str:
-    if pd.api.types.is_bool_dtype(series) or pd.api.types.is_object_dtype(series) or pd.api.types.is_categorical_dtype(series):
+    # Pandas 3 defaults text columns to a dedicated string dtype in many
+    # readers; treat those targets as classes regardless of cardinality.
+    is_text_or_category = (
+        pd.api.types.is_bool_dtype(series)
+        or pd.api.types.is_object_dtype(series)
+        or pd.api.types.is_string_dtype(series.dtype)
+        or isinstance(series.dtype, pd.CategoricalDtype)
+    )
+    if is_text_or_category:
         return "classification"
     return "classification" if series.nunique(dropna=True) <= 20 else "regression"
 
@@ -47,7 +55,7 @@ def profile_dataframe(df: pd.DataFrame) -> dict[str, Any]:
     missing_total = int(df.isna().sum().sum())
     duplicate_rows = int(df.duplicated().sum())
     numerical = df.select_dtypes(include=np.number).columns.tolist()
-    categorical = df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+    categorical = df.select_dtypes(include=["object", "category", "bool", "str"]).columns.tolist()
 
     column_profiles: list[dict[str, Any]] = []
     for col in df.columns:
