@@ -62,3 +62,9 @@ def test_eda_chart_controls_have_matching_renderers():
         "renderMissingnessChart",
     ]:
         assert f"function {renderer}(" in APP_JS
+
+
+
+def test_root_supports_head_health_probe():
+    assert '@app.head("/", include_in_schema=False)' in BACKEND
+    assert "def home_head():" in BACKEND
