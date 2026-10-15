@@ -406,11 +406,26 @@ The response includes the predicted value and, for supported classification esti
 
 ### Frontend and dataset persistence
 
-The root route serves `frontend/index.html`; the CSS and JavaScript are served from `/assets/styles.css` and `/assets/app.js`. Dataset metadata, profile summaries, training metadata, and saved model paths are stored in SQLite, while uploaded files and model artifacts live under `data/uploads/` and `models/`.
+The root route serves `frontend/index.html`. Relative links load `/styles.css` and `/app.js` when using FastAPI, and remain compatible with the GitHub Pages project subpath. The same assets are also mounted under `/assets/`. Dataset metadata, profile summaries, training metadata, and saved model paths are stored in SQLite, while uploaded files and model artifacts live under `data/uploads/` and `models/`.
 
 The list and detail APIs do not return complete raw dataset rows. After a browser reload, the interface restores persisted metadata and profile summaries. The browser-side row preview remains available for files uploaded during the current page session.
 
 The current backend does not expose a separate background worker, durable queue, or persistent job-history API. Jobs and the SSE event buffer are in process memory and are cleared by a server restart.
+
+## Hosting the Frontend Separately
+
+The frontend can be deployed as a static site, but API-backed features require a running FastAPI backend.
+
+1. Deploy the backend over HTTPS.
+2. Set `DATAVISION_CORS_ORIGINS` on the backend to the exact trusted frontend origin(s), separated by commas. For the GitHub Pages site, use `https://mahitech580.github.io`; include your local development origin only when needed.
+3. Set the `datavision-api-base` meta tag in `frontend/index.html` to the backend origin, for example `https://your-api.example.com`. Keep only the origin, without an API route suffix or trailing slash.
+4. Redeploy the frontend and verify `/health`, dataset upload, training, prediction, and `/api/stream` in the browser's network panel.
+
+The default API origin is same-origin, so the app can also run directly from the FastAPI server without additional CORS configuration. CORS is not authentication: do not expose private datasets or model operations publicly without suitable access controls.
+
+## Interactive Exploratory Charts
+
+The Data Workbench includes Chart.js visualizations for numerical distributions, categorical frequency, and missing-value percentages. Locally uploaded data can be charted from its in-memory records. Persisted datasets restored after a page reload expose server-generated profile summaries rather than complete raw rows, so charts use those available summaries where possible.
 
 ## Machine Learning Design
 
