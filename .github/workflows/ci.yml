@@ -21,4 +21,4 @@ jobs:
       - name: Compile backend
         run: python -m compileall backend
       - name: Run tests
-        run: pytest -q
+        run: python -m pytest -q
