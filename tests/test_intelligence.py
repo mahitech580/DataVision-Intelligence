@@ -37,7 +37,8 @@ def test_feature_importance_aggregates_encoded_categories():
 
     assert items
     assert {item["feature"] for item in items} <= {"age", "segment"}
-    assert np.isclose(sum(item["importance"] for item in items), sum(item["importance"] for item in items))
+    assert np.isclose(sum(item["importance_pct"] for item in items), 100.0, atol=0.1)
+    assert all(item["importance"] >= 0 for item in items)
 
 
 def test_classification_prediction_exposes_ranked_probabilities():
