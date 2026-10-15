@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from backend.intelligence import feature_importance, predict, profile_dataframe
+from backend.intelligence import feature_importance, infer_problem_type, predict, profile_dataframe
 
 
 def test_profile_reports_quality_and_outliers():
@@ -61,3 +61,22 @@ def test_classification_prediction_exposes_ranked_probabilities():
     assert result["class_probabilities"]
     assert len(result["class_probabilities"]) <= 5
     assert result["class_probabilities"][0]["probability"] >= result["class_probabilities"][-1]["probability"]
+
+
+
+def test_high_cardinality_text_target_stays_classification_with_pandas_string_dtype():
+    target = pd.Series([f"label-{index}" for index in range(25)], dtype="str")
+
+    assert infer_problem_type(target) == "classification"
+
+
+def test_profile_recognizes_pandas_string_dtype_as_categorical():
+    frame = pd.DataFrame({
+        "segment": pd.Series(["alpha", "beta", "gamma"], dtype="str"),
+        "amount": [10, 20, 30],
+    })
+
+    profile = profile_dataframe(frame)
+
+    assert "segment" in profile["categorical_columns"]
+    assert "amount" in profile["numerical_columns"]
