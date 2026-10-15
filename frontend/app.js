@@ -14,18 +14,27 @@
 
   window.DATAVISION_API_BASE = "https://your-backend.onrender.com";
 
-  Default API routes:
-  GET  /api/health
-  GET  /health
-  POST /api/datasets       multipart/form-data field: file
-  POST /api/train          JSON
-  POST /api/predict        JSON
-  GET  /api/events         Server-Sent Events
+  Configure either:
+  window.DATAVISION_API_BASE = "https://your-api.example.com";
+  or <meta name="datavision-api-base" content="https://your-api.example.com">
 
-  Adapt the ENDPOINTS object below to match your Flask/FastAPI routes.
+  This project uses the routes implemented by backend/main.py:
+  GET  /health
+  GET  /api/datasets
+  POST /api/datasets/upload (multipart field: file)
+  POST /api/datasets/{id}/train?target={column}
+  GET  /api/jobs/{job_id}
+  GET  /api/datasets/{id}/importance
+  POST /api/datasets/{id}/predict (JSON feature map)
+  GET  /api/stream (Server-Sent Events)
 */
 
-const API_BASE = String(window.DATAVISION_API_BASE || "").replace(/\/+$/, "");
+const configuredApiBase =
+  window.DATAVISION_API_BASE ||
+  document.querySelector('meta[name="datavision-api-base"]')?.content ||
+  "";
+
+const API_BASE = String(configuredApiBase).trim().replace(/\/+$/, "");
 
 const ENDPOINTS = {
   health: ["/health", "/api/health"],
