@@ -1907,6 +1907,7 @@ function renderDatasetProfile(dataset = getActiveDataset()) {
   renderQualityProfile(dataset);
   renderInsights(dataset);
   renderCorrelations(dataset);
+  renderExplorationCharts(dataset);
   populateTargetOptions(dataset);
   renderLatestSignal();
   renderDatasetList();
@@ -2268,8 +2269,324 @@ function renderCorrelations(dataset) {
 }
 
 /* =========================================================
-   TARGET SELECTION
+   INTERACTIVE EXPLORATORY CHARTS
    ========================================================= */
+
+function destroyChart(name) {
+  if (state.charts[name] && typeof state.charts[name].destroy === "function") {
+    state.charts[name].destroy();
+  }
+  delete state.charts[name];
+}
+
+function chartOptions(extra = {}) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400, easing: "easeOutQuart" },
+    interaction: { intersect: false, mode: "index" },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#151c2a",
+        titleColor: "#edf2fb",
+        bodyColor: "#c9d3e3",
+        borderColor: "rgba(132,151,181,.24)",
+        borderWidth: 1,
+        padding: 10
+      }
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        border: { color: "rgba(132,151,181,.16)" },
+        ticks: { color: "#8d9bb0", font: { family: "DM Sans", size: 9 }, maxRotation: 35 }
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: "rgba(132,151,181,.10)" },
+        border: { display: false },
+        ticks: { color: "#8d9bb0", font: { family: "DM Sans", size: 9 } }
+      }
+    },
+    ...extra
+  };
+}
+
+function chartStats(dataset) {
+  return dataset?.analysis?.columnStats || [];
+}
+
+function numericChartColumns(dataset) {
+  return chartStats(dataset).filter(column => column.numeric).map(column => column.name);
+}
+
+function categoricalChartColumns(dataset) {
+  return chartStats(dataset)
+    .filter(column => !column.numeric && column.type !== "Empty" && column.unique > 0)
+    .map(column => column.name);
+}
+
+function configureChartSelect(select, values, placeholder) {
+  if (!select) return;
+  const previous = select.value;
+  select.innerHTML = [
+    `<option value="">${escapeHTML(placeholder)}</option>`,
+    ...values.map(value => `<option value="${escapeHTML(value)}">${escapeHTML(value)}</option>`)
+  ].join("");
+  select.value = values.includes(previous) ? previous : (values[0] || "");
+}
+
+function renderExplorationCharts(dataset) {
+  configureChartSelect($("#numericChartSelect"), numericChartColumns(dataset), "Select a numeric feature");
+  configureChartSelect($("#categoricalChartSelect"), categoricalChartColumns(dataset), "Select a categorical feature");
+  renderNumericDistributionChart(dataset, $("#numericChartSelect")?.value || "");
+  renderCategoryDistributionChart(dataset, $("#categoricalChartSelect")?.value || "");
+  renderMissingnessChart(dataset);
+}
+
+function renderNumericDistributionChart(dataset, column) {
+  destroyChart("numericDistribution");
+  const canvas = $("#numericDistributionChart");
+  const note = $("#numericChartNote");
+  if (!canvas || !window.Chart) {
+    if (note) note.textContent = "Chart.js is unavailable. Check the chart library script.";
+    return;
+  }
+
+  const rows = dataset.rows || [];
+  const stat = chartStats(dataset).find(item => item.name === column);
+  let labels = [];
+  let values = [];
+  let summaryOnly = false;
+
+  if (rows.length && column) {
+    const numbers = rows.map(row => numericValue(row[column])).filter(value => value !== null);
+    if (!numbers.length) {
+      if (note) note.textContent = "No valid numeric values were found in this feature.";
+      return;
+    }
+
+    const min = Math.min(...numbers);
+    const max = Math.max(...numbers);
+
+    if (min === max) {
+      labels = [String(min)];
+      values = [numbers.length];
+    } else {
+      const binCount = Math.max(5, Math.min(12, Math.round(Math.sqrt(numbers.length))));
+      const step = (max - min) / binCount;
+      const counts = new Array(binCount).fill(0);
+
+      numbers.forEach(value => {
+        counts[Math.min(binCount - 1, Math.floor((value - min) / step))]++;
+      });
+
+      labels = counts.map((_, index) => {
+        const start = min + index * step;
+        const end = index === binCount - 1 ? max : min + (index + 1) * step;
+        return `${formatNumber(start, 2)}–${formatNumber(end, 2)}`;
+      });
+      values = counts;
+    }
+
+    if (note) note.textContent = `Histogram of ${formatNumber(numbers.length)} non-missing values for ${column}.`;
+  } else if (stat) {
+    // Persisted inventory responses contain aggregates rather than raw rows.
+    labels = ["Minimum", "Median", "Mean", "Maximum"];
+    values = [stat.min, stat.median, stat.mean, stat.max].map(value =>
+      value === null || value === undefined ? 0 : safeNumber(value)
+    );
+    summaryOnly = true;
+    if (note) note.textContent = "This dataset is persisted on the server; the chart uses profile summary statistics because raw rows are not returned by the inventory API.";
+  } else {
+    if (note) note.textContent = "Select a dataset with numeric columns to view a distribution.";
+    return;
+  }
+
+  state.charts.numericDistribution = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: summaryOnly ? "Summary statistic" : "Frequency",
+        data: values,
+        backgroundColor: "rgba(167,139,250,.60)",
+        hoverBackgroundColor: "rgba(196,181,253,.88)",
+        borderColor: "#a78bfa",
+        borderWidth: 1,
+        borderRadius: 5,
+        maxBarThickness: 36
+      }]
+    },
+    options: chartOptions({
+      scales: {
+        x: { grid: { display: false }, border: { color: "rgba(132,151,181,.16)" }, ticks: { color: "#8d9bb0", font: { family: "DM Sans", size: 9 }, maxRotation: 35 } },
+        y: { beginAtZero: true, grid: { color: "rgba(132,151,181,.10)" }, border: { display: false }, ticks: { color: "#8d9bb0", font: { family: "DM Sans", size: 9 } } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#151c2a", titleColor: "#edf2fb", bodyColor: "#c9d3e3",
+          borderColor: "rgba(132,151,181,.24)", borderWidth: 1, padding: 10,
+          callbacks: {
+            label: context => summaryOnly
+              ? `Value: ${formatNumber(context.parsed.y, 3)}`
+              : `Frequency: ${formatNumber(context.parsed.y)}`
+          }
+        }
+      }
+    })
+  });
+}
+
+function renderCategoryDistributionChart(dataset, column) {
+  destroyChart("categoryDistribution");
+  const canvas = $("#categoryDistributionChart");
+  const note = $("#categoryChartNote");
+
+  if (!canvas || !window.Chart) {
+    if (note) note.textContent = "Chart.js is unavailable. Check the chart library script.";
+    return;
+  }
+
+  const rows = dataset.rows || [];
+  const stat = chartStats(dataset).find(item => item.name === column);
+  let labels = [];
+  let values = [];
+
+  if (rows.length && column) {
+    const counts = new Map();
+    rows.forEach(row => {
+      const value = row[column];
+      const key = isEmptyValue(value) ? "(Missing)" : String(value);
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+    labels = ranked.map(([name]) => name);
+    values = ranked.map(([, count]) => count);
+    if (note) note.textContent = `Top ${ranked.length} values out of ${formatNumber(counts.size)} distinct categories.`;
+  } else if (stat?.topValues?.length) {
+    const ranked = stat.topValues.slice(0, 10);
+    labels = ranked.map(item => String(item.value));
+    values = ranked.map(item => safeNumber(item.count));
+    if (note) note.textContent = "Showing category counts returned by the server-side profile.";
+  } else {
+    if (note) note.textContent = "No category counts are available for this feature.";
+    return;
+  }
+
+  state.charts.categoryDistribution = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "Records",
+        data: values,
+        backgroundColor: labels.map((_, index) => index % 2 ? "rgba(103,232,249,.44)" : "rgba(103,232,249,.68)"),
+        hoverBackgroundColor: "#67e8f9",
+        borderColor: "rgba(103,232,249,.85)",
+        borderWidth: 1,
+        borderRadius: 5,
+        maxBarThickness: 34
+      }]
+    },
+    options: chartOptions({
+      indexAxis: "y",
+      scales: {
+        x: { beginAtZero: true, grid: { color: "rgba(132,151,181,.10)" }, border: { display: false }, ticks: { color: "#8d9bb0", font: { family: "DM Sans", size: 9 }, precision: 0 } },
+        y: { grid: { display: false }, border: { color: "rgba(132,151,181,.16)" }, ticks: { color: "#aebbd0", font: { family: "DM Sans", size: 9 } } }
+      }
+    })
+  });
+}
+
+function renderMissingnessChart(dataset) {
+  destroyChart("missingness");
+  const canvas = $("#missingnessChart");
+  const note = $("#missingChartNote");
+  const badge = $("#missingChartBadge");
+
+  if (!canvas || !window.Chart) {
+    if (note) note.textContent = "Chart.js is unavailable. Check the chart library script.";
+    return;
+  }
+
+  const columns = chartStats(dataset)
+    .filter(column => column.total > 0)
+    .sort((a, b) => b.missingPct - a.missingPct)
+    .slice(0, 15);
+
+  if (!columns.length) {
+    if (note) note.textContent = "No column-level completeness statistics are available.";
+    if (badge) badge.textContent = "No profile";
+    return;
+  }
+
+  const withMissing = columns.filter(column => column.missing > 0).length;
+  if (badge) {
+    badge.textContent = withMissing ? `${withMissing} columns with missing values` : "No missing values";
+    badge.className = `tag ${withMissing ? "yellow" : "green"}`;
+  }
+  if (note) {
+    note.textContent = columns.length === 15
+      ? "Showing the 15 columns with the highest missing-value percentages."
+      : "Each bar shows the percentage of missing values in a column.";
+  }
+
+  state.charts.missingness = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: columns.map(column => column.name),
+      datasets: [{
+        label: "Missing values (%)",
+        data: columns.map(column => column.missingPct),
+        backgroundColor: columns.map(column =>
+          column.missingPct >= 30 ? "rgba(251,113,133,.62)"
+            : column.missingPct > 0 ? "rgba(250,204,117,.62)"
+              : "rgba(85,223,164,.35)"
+        ),
+        borderColor: columns.map(column =>
+          column.missingPct >= 30 ? "#fb7185"
+            : column.missingPct > 0 ? "#facc75"
+              : "#55dfa4"
+        ),
+        borderWidth: 1,
+        borderRadius: 4,
+        maxBarThickness: 27
+      }]
+    },
+    options: chartOptions({
+      indexAxis: "y",
+      scales: {
+        x: { beginAtZero: true, max: 100, grid: { color: "rgba(132,151,181,.10)" }, border: { display: false }, ticks: { color: "#8d9bb0", font: { family: "DM Sans", size: 9 }, callback: value => `${value}%` } },
+        y: { grid: { display: false }, border: { color: "rgba(132,151,181,.16)" }, ticks: { color: "#aebbd0", font: { family: "DM Sans", size: 9 } } }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#151c2a", titleColor: "#edf2fb", bodyColor: "#c9d3e3",
+          borderColor: "rgba(132,151,181,.24)", borderWidth: 1, padding: 10,
+          callbacks: { label: context => `Missing: ${formatPercent(context.parsed.x)}` }
+        }
+      }
+    })
+  });
+}
+
+function initializeExplorationCharts() {
+  $("#numericChartSelect")?.addEventListener("change", () => {
+    const dataset = getActiveDataset();
+    if (dataset) renderNumericDistributionChart(dataset, $("#numericChartSelect").value);
+  });
+
+  $("#categoricalChartSelect")?.addEventListener("change", () => {
+    const dataset = getActiveDataset();
+    if (dataset) renderCategoryDistributionChart(dataset, $("#categoricalChartSelect").value);
+  });
+}
+
+
 
 function inferTaskType(dataset, target) {
   const values = getColumnValues(dataset, target).filter(
@@ -2378,7 +2695,7 @@ function renderMetrics() {
   const datasetCount = state.datasets.length;
 
   const totalRows = state.datasets.reduce(
-    (sum, dataset) => sum + (dataset.rows?.length || 0),
+    (sum, dataset) => sum + safeNumber(dataset.analysis?.rowCount, dataset.rows?.length || 0),
     0
   );
 
@@ -3423,6 +3740,7 @@ async function initializeApp() {
   initializeUploader();
   initializeDatasetListClicks();
   initializeStreamControls();
+  initializeExplorationCharts();
   initializeTraining();
   initializePrediction();
 
