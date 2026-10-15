@@ -332,13 +332,43 @@ def train(dataset_id: int, target: str, background_tasks: BackgroundTasks):
     return {"job_id": job_id, "status": "queued"}
 
 
+def public_job(item: dict) -> dict:
+    """Expose only the job fields needed by the workspace client."""
+    result = item.get("result")
+    safe_result = None
+
+    if isinstance(result, dict):
+        allowed_result_fields = {
+            "problem_type",
+            "best_model",
+            "best_score",
+            "metrics",
+            "features",
+        }
+        safe_result = {
+            key: result[key]
+            for key in allowed_result_fields
+            if key in result
+        }
+
+    return {
+        "id": item.get("id"),
+        "dataset_id": item.get("dataset_id"),
+        "status": item.get("status"),
+        "progress": item.get("progress", 0),
+        "message": item.get("message", ""),
+        "created_at": item.get("created_at"),
+        "result": safe_result,
+    }
+
+
 @app.get("/api/jobs/{job_id}")
 def job(job_id: str):
     prune_jobs()
     item = JOBS.get(job_id)
     if not item:
         raise HTTPException(status_code=404, detail="Job not found.")
-    return item
+    return public_job(item)
 
 
 @app.get("/api/datasets/{dataset_id}/importance")
