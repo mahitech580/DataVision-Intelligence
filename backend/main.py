@@ -11,7 +11,7 @@ from pathlib import Path
 
 import joblib
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -103,6 +103,12 @@ def job_progress(job_id: str):
 @app.get("/")
 def home():
     return FileResponse(FRONTEND_DIR / "index.html")
+
+
+@app.head("/", include_in_schema=False)
+def home_head():
+    # Some platform probes use HEAD before requesting the health endpoint.
+    return Response(status_code=200)
 
 
 @app.get("/styles.css", include_in_schema=False)
