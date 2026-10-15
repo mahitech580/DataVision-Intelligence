@@ -1,58 +1,493 @@
 # DataVision Intelligence
 
-Advanced AI-powered data intelligence platform for turning raw datasets into explainable, actionable insights.
+**An AI-powered data intelligence platform for turning raw datasets into explainable insights, reliable machine learning models, and actionable predictions.**
 
-## What it does
+DataVision Intelligence brings data ingestion, automated profiling, data-quality analysis, exploratory analytics, AutoML, model comparison, explainability, and prediction workflows into a unified workspace.
 
-DataVision Intelligence combines persistent dataset management, automated profiling, data-quality intelligence, exploratory analytics, asynchronous AutoML, model comparison, explainability signals, predictions, experiment state, and a realtime activity stream in one workspace.
+The project demonstrates full-stack machine learning engineering with **FastAPI, pandas, scikit-learn, vanilla JavaScript, and Chart.js**.
 
-Core flow:
+---
 
-~~~text
-Upload → Profile → Quality → Insights → Train → Compare → Explain → Predict → Monitor
-~~~
+## Overview
 
-## Current architecture
+DataVision Intelligence is designed to help users move from an unfamiliar dataset to a better understanding of its quality, patterns, and predictive potential.
 
-~~~text
-backend/
-  main.py
-  store.py
-  intelligence.py
-frontend/
-  index.html
-  app.js
-  styles.css
-models/
-data/uploads/
-tests/
-~~~
+Instead of treating data preparation, analysis, model training, and prediction as separate tasks, the platform organizes them into a connected workflow.
 
-Backend is FastAPI. Data work is powered by pandas and scikit-learn. The browser uses vanilla JavaScript and Chart.js.
+```text
+Upload
+  ↓
+Profile
+  ↓
+Data Quality
+  ↓
+Discover Insights
+  ↓
+Train Models
+  ↓
+Compare Performance
+  ↓
+Explain Predictions
+  ↓
+Generate Predictions
+  ↓
+Monitor Activity
+```
 
-## Realtime design
+## Key Features
 
-Training runs as background jobs and emits server-sent events. The browser subscribes to /api/stream, so progress appears live without manual refresh.
+### 1. Dataset Ingestion and Management
 
-## Intelligence layer
+- Import structured datasets from CSV and Excel files.
+- Inspect rows, columns, data types, and representative records.
+- Maintain a dataset inventory.
+- Associate analysis results with individual datasets.
+- Support backend-managed dataset persistence.
+- Export dataset data and analysis reports.
 
-The current engine automatically calculates shape, memory, missingness, duplicates, constant columns, identifier candidates, cardinality warnings, numeric summaries, categorical summaries, correlations, target recommendations, and human-readable insights.
+### 2. Automated Data Profiling
 
-AutoML evaluates multiple classification or regression pipelines with preprocessing inside each pipeline to avoid train/test leakage. The best pipeline is persisted and can be used immediately by the prediction interface.
+Automatically inspect dataset structure and summarize important characteristics, including:
 
-## Run locally
+- Number of rows, columns, and data cells.
+- Dataset memory usage and structural information.
+- Missing-value counts and percentages.
+- Duplicate records and constant columns.
+- Candidate identifiers and high-cardinality columns.
+- Numeric descriptive statistics.
+- Categorical distributions and unique-value counts.
+- Potential data-quality issues.
 
-1. Create a virtual environment.
-2. Install requirements.
-3. Run: uvicorn backend.main:app --reload
-4. Open http://127.0.0.1:8000
+### 3. Data Quality Intelligence
 
-API docs are available at /docs.
+Identify issues that may affect downstream analysis and machine learning.
 
-## Product direction
+- Missing-data analysis.
+- Duplicate-record detection.
+- Empty and constant-column detection.
+- Cardinality and feature-type checks.
+- Human-readable quality findings.
+- Warnings to help prioritize data preparation.
 
-Future daily iterations can add time-series intelligence, anomaly detection, drift monitoring, richer model diagnostics, feature lineage, scheduled data refresh, natural-language analysis, and production deployment integrations.
+Data-quality findings are diagnostic signals. They do not automatically establish that a dataset is accurate, unbiased, or suitable for every modeling task.
 
-## Portfolio positioning
+### 4. Exploratory Data Analysis
 
-DataVision Intelligence is intended to demonstrate full-stack ML engineering: data ingestion, analytics, model orchestration, explainability, asynchronous processing, realtime UI updates, persistence, testing, and product-quality UX.
+Explore dataset characteristics before training a model.
+
+- Numeric summaries and feature distributions.
+- Categorical feature summaries.
+- Numeric correlation analysis.
+- Potential relationships between variables.
+- Data-quality and profiling insights.
+- Dataset previews and column-level information.
+
+Chart.js supports interactive visualizations in the browser.
+
+### 5. Automated Machine Learning
+
+The AutoML workflow is designed to evaluate suitable candidate pipelines for classification or regression tasks.
+
+- Select a target column.
+- Determine an appropriate prediction task.
+- Prepare numerical and categorical features.
+- Apply preprocessing within model pipelines.
+- Compare candidate estimators using evaluation metrics.
+- Return the selected model and benchmark results.
+- Persist trained pipelines for subsequent inference.
+
+Preprocessing should be fitted on training data within each evaluation pipeline to reduce data leakage. Model selection and validation strategy must also be appropriate for the dataset and prediction task.
+
+### 6. Model Comparison and Evaluation
+
+Review model-training results in the Model Lab.
+
+- Compare candidate pipelines.
+- Inspect available performance metrics.
+- Review the selected model.
+- Associate model results with datasets and targets.
+- Examine returned evaluation information.
+
+The appropriate metrics depend on the task. Classification can use measures such as precision, recall, F1-score, and ROC-AUC; regression can use MAE, RMSE, and \(R^2\), where appropriate.
+
+### 7. Model Explainability
+
+Make model behavior easier to inspect through feature-level signals.
+
+- Display feature-importance values returned by the model service.
+- Compare relative feature contributions.
+- Connect model results with their associated dataset and target.
+- Present explanatory information in an accessible interface.
+
+Feature importance describes a model-specific relationship; it should not automatically be interpreted as causation.
+
+### 8. Prediction and Inference
+
+Use a trained model to generate predictions from user-provided feature values.
+
+- Generate prediction input fields from model features.
+- Submit inputs to the inference service.
+- Display the response in the workspace.
+- Show confidence or additional information when supplied by the backend.
+- Associate inference activity with the selected model.
+
+Predictions rely on a trained, compatible model and a functioning inference endpoint.
+
+### 9. Realtime Activity Stream
+
+The backend is designed to publish operational events using Server-Sent Events (SSE).
+
+- Training-job progress updates.
+- Dataset ingestion events.
+- Prediction activity.
+- System status and job notifications.
+- Browser-side event filtering and activity history.
+
+The intended stream endpoint is:
+
+```text
+/api/stream
+```
+
+The frontend and backend must use the same endpoint and event payload format for realtime updates to work correctly.
+
+### 10. Persistent Experiment State
+
+The backend architecture separates data storage, analytical operations, and API handling.
+
+This provides a foundation for maintaining datasets, training results, experiment metadata, and saved model pipelines across application sessions.
+
+Actual persistence depends on the configured storage implementation and successful backend operations.
+
+---
+
+## Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| Backend API | Python, FastAPI |
+| Data processing | pandas, NumPy |
+| Machine learning | scikit-learn |
+| Frontend | HTML5, CSS3, vanilla JavaScript |
+| Data visualization | Chart.js |
+| Spreadsheet ingestion | SheetJS / XLSX |
+| Realtime updates | Server-Sent Events |
+| Model persistence | Backend-managed model storage |
+| API documentation | FastAPI OpenAPI documentation |
+| Testing | Python testing tools and project test suite |
+
+## Architecture
+
+```text
+┌──────────────────────────────────────────┐
+│           Browser Workspace              │
+│                                          │
+│  index.html · styles.css · app.js        │
+│                                          │
+│  Dataset Explorer · Charts · Model Lab   │
+│  Predictions · Activity Stream           │
+└───────────────────┬──────────────────────┘
+                    │ HTTP / JSON
+                    │ Multipart uploads
+                    │ Server-Sent Events
+                    ▼
+┌──────────────────────────────────────────┐
+│              FastAPI Backend             │
+│                                          │
+│  Request Validation · API Routes         │
+│  Dataset Operations · Background Jobs    │
+│  Training · Prediction · Event Streaming │
+└───────────────┬──────────────────────────┘
+                │
+        ┌───────┴────────┐
+        ▼                ▼
+┌───────────────┐  ┌───────────────────────┐
+│ Data Services │  │ Intelligence Engine   │
+│               │  │                       │
+│ store.py      │  │ intelligence.py       │
+│ Dataset State │  │ Profiling and Quality │
+│ Saved Models  │  │ AutoML and Evaluation │
+└───────────────┘  └───────────────────────┘
+        │                │
+        ▼                ▼
+┌───────────────┐  ┌───────────────────────┐
+│ Upload Storage│  │ scikit-learn Pipelines│
+│ data/uploads/ │  │ Trained Model Artifacts│
+└───────────────┘  └───────────────────────┘
+```
+
+## Project Structure
+
+```text
+DataVision-Intelligence/
+│
+├── backend/
+│   ├── main.py
+│   ├── store.py
+│   ├── intelligence.py
+│   └── ...
+│
+├── frontend/
+│   ├── index.html
+│   ├── styles.css
+│   └── app.js
+│
+├── models/
+│   └── ...                 # Persisted model artifacts
+│
+├── data/
+│   └── uploads/            # Uploaded dataset storage
+│
+├── tests/
+│   └── ...                 # Automated tests
+│
+├── requirements.txt
+├── .gitignore
+└── README.md
+```
+
+Files inside `models/` and `data/uploads/` may be generated at runtime. Avoid committing private datasets, credentials, or unnecessarily large model artifacts to version control.
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.10 or a compatible version supported by the project dependencies.
+- pip.
+- Git.
+- A modern web browser.
+
+### 1. Clone the repository
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd DataVision-Intelligence
+```
+
+Replace `<YOUR_REPOSITORY_URL>` with the actual Git repository URL.
+
+### 2. Create a virtual environment
+
+**Windows — PowerShell**
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+**macOS / Linux**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install dependencies
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Ensure `requirements.txt` contains the dependencies used by the backend, including FastAPI, Uvicorn, pandas, NumPy, scikit-learn, and any additional packages required by the project.
+
+### 4. Start the backend
+
+Run this command from the repository root:
+
+```bash
+uvicorn backend.main:app --reload
+```
+
+The development API should be available at:
+
+```text
+http://127.0.0.1:8000
+```
+
+### 5. Open the application
+
+If FastAPI is configured to serve the frontend, open:
+
+```text
+http://127.0.0.1:8000
+```
+
+Otherwise, configure the FastAPI application to mount or serve the frontend directory, or use a local static-file server and configure the frontend API URL accordingly.
+
+### 6. Explore the API
+
+Open the interactive API documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+Use the documentation to inspect the routes actually registered by the running backend and test their request and response formats.
+
+---
+
+## Realtime Training Architecture
+
+The intended asynchronous workflow is:
+
+1. A user submits a training request.
+2. The backend creates a training job.
+3. The job evaluates candidate machine learning pipelines.
+4. Progress and lifecycle events are published through the SSE endpoint.
+5. The browser displays updates as they arrive.
+6. Completed model artifacts and evaluation results are saved by the configured backend.
+7. The prediction interface uses the selected trained model.
+
+```text
+Browser
+   │
+   ├── POST training request
+   │
+   ▼
+FastAPI
+   │
+   ├── Create training job
+   │
+   ▼
+Background Worker
+   │
+   ├── Preprocess data
+   ├── Evaluate pipelines
+   ├── Compare metrics
+   └── Persist selected model
+   │
+   ├── Publish job events
+   ▼
+/api/stream
+   │
+   ▼
+Browser Activity Feed
+```
+
+The actual worker implementation, job storage, event schema, and stream endpoint must be verified against the source code and deployment configuration.
+
+## API Capabilities
+
+The application is organized around these functional areas:
+
+| Capability | Purpose |
+|---|---|
+| Health | Report application and dependency health |
+| Dataset ingestion | Accept and register uploaded datasets |
+| Dataset profiling | Return structural and statistical summaries |
+| Data quality | Report missingness, duplicates, and potential issues |
+| Exploratory analysis | Return feature summaries and numeric relationships |
+| AutoML | Start or execute model-training jobs |
+| Job status | Track training state and progress |
+| Model comparison | Return candidate models and evaluation metrics |
+| Explainability | Return supported feature-importance information |
+| Prediction | Run inference using a persisted trained model |
+| Event streaming | Publish realtime lifecycle events |
+
+These names describe the API capabilities; use `/docs` to confirm the exact paths, HTTP methods, schemas, and availability implemented in the current version.
+
+## Machine Learning Design
+
+### Task selection
+
+The engine should distinguish classification from regression based on target characteristics and the intended prediction problem. Numeric targets are not always regression targets: a numeric column may represent discrete classes.
+
+### Preprocessing
+
+Preprocessing should be incorporated into scikit-learn pipelines wherever practical.
+
+This helps ensure that imputation, encoding, scaling, and other fitted transformations are learned from training folds rather than from the full dataset.
+
+### Evaluation
+
+The platform should report metrics suited to the problem and data. Results should include sufficient validation context to support a meaningful comparison.
+
+### Explainability
+
+Feature-importance information should be returned from a supported estimator or explainability method. If a model does not provide a valid explanation, the interface should report that the information is unavailable instead of inventing values.
+
+### Persistence
+
+A saved model should retain the transformations needed to process new inputs consistently with training. Persisted artifacts should be loaded and used only through compatible, trusted application code.
+
+---
+
+## Testing and Verification
+
+Before considering a release ready, verify the following:
+
+- [ ] Backend starts successfully.
+- [ ] Health endpoint returns the expected response.
+- [ ] CSV upload works with valid and invalid files.
+- [ ] Excel upload works with supported worksheets.
+- [ ] Profiling correctly handles empty and missing values.
+- [ ] Duplicate detection returns the expected counts.
+- [ ] Dataset inventory survives restarts when persistent storage is configured.
+- [ ] Training jobs report success and failure states.
+- [ ] Model comparison displays actual returned metrics.
+- [ ] Trained models can be loaded for inference.
+- [ ] Invalid prediction inputs return useful errors.
+- [ ] SSE streams receive and render backend events.
+- [ ] Large datasets are handled within documented resource limits.
+- [ ] Frontend works at mobile, tablet, and desktop widths.
+- [ ] Tests run successfully against a clean environment.
+
+Run the project's test suite using the command defined by its test configuration. For a pytest-based setup:
+
+```bash
+pytest -q
+```
+
+A passing test suite is evidence for the tested cases, not a guarantee that every production scenario works.
+
+## Security and Data Handling
+
+- Validate uploaded file formats, sizes, and contents on the server.
+- Apply authentication and authorization when datasets or models belong to specific users.
+- Avoid exposing sensitive uploaded data through logs or event payloads.
+- Do not accept arbitrary filesystem paths from client requests.
+- Apply limits to training resources, upload sizes, and request durations.
+- Treat serialized model files as trusted application artifacts.
+- Configure CORS deliberately when the browser and API use separate origins.
+- Keep credentials and secrets in environment variables, not source control.
+
+## Current Scope and Future Roadmap
+
+Potential future enhancements include:
+
+- Time-series analysis and forecasting.
+- Anomaly detection and outlier investigation.
+- Data and prediction drift monitoring.
+- Model calibration and richer diagnostic reports.
+- Feature lineage and data transformation history.
+- Scheduled ingestion and dataset refresh.
+- Natural-language exploration of structured data.
+- Background-worker queues and job recovery.
+- Dataset access controls and multi-user workspaces.
+- Production deployment and model-serving integrations.
+
+These are roadmap ideas unless they are explicitly implemented and tested in the current source code.
+
+## Portfolio Positioning
+
+DataVision Intelligence is intended to demonstrate skills across the full-stack machine learning lifecycle:
+
+- Python backend and REST API development.
+- Structured data ingestion and processing.
+- Exploratory data analysis and data-quality diagnostics.
+- Scikit-learn pipelines and automated model comparison.
+- Persisted model inference.
+- Asynchronous job orchestration and SSE-based updates.
+- Frontend integration with analytical APIs.
+- Testing, error handling, and application observability.
+
+The project emphasizes a connected, inspectable workflow in which dataset analysis, model training, evaluation, and inference work together rather than appearing as isolated demonstrations.
+
+## License
+
+Add a `LICENSE` file and update this section with the applicable license before distributing the project.
+
+---
+
+**DataVision Intelligence — From raw datasets to explainable, actionable insights.**
