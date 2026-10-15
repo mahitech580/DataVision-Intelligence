@@ -1,67 +1,1207 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#070b12">
-  <title>DataVision Intelligence</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b12">
+  <meta name="description" content="DataVision Intelligence — advanced data analytics, automated machine learning, predictive intelligence, and realtime monitoring.">
+  <meta name="color-scheme" content="dark">
+  <title>DataVision Intelligence — Analytics Workspace</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
 </head>
+
 <body>
-  <div class="shell">
-    <aside class="sidebar">
-      <div class="brand"><div class="brand-mark">DV</div><div><strong>DataVision</strong><span>Intelligence</span></div></div>
-      <div class="eyebrow">WORKSPACE</div>
-      <nav>
-        <button class="nav active" data-view="overview"><span>◈</span> Overview</button>
-        <button class="nav" data-view="datasets"><span>▦</span> Data Workbench</button>
-        <button class="nav" data-view="models"><span>◇</span> Model Lab</button>
-        <button class="nav" data-view="stream"><span>◉</span> Live Stream</button>
+  <a class="skip-link" href="#main">Skip to workspace</a>
+
+  <!-- Decorative scene layers are styled by styles.css -->
+  <div class="ambient-background" aria-hidden="true">
+    <div class="ambient-glow ambient-glow-one"></div>
+    <div class="ambient-glow ambient-glow-two"></div>
+    <div class="ambient-grid"></div>
+    <div class="ambient-noise"></div>
+  </div>
+
+  <!-- SVG icon library -->
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="icon-dashboard" viewBox="0 0 24 24">
+      <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+      <rect x="14" y="3" width="7" height="5" rx="1.5"/>
+      <rect x="14" y="11" width="7" height="10" rx="1.5"/>
+      <rect x="3" y="13" width="7" height="8" rx="1.5"/>
+    </symbol>
+    <symbol id="icon-database" viewBox="0 0 24 24">
+      <ellipse cx="12" cy="5" rx="8.5" ry="3"/>
+      <path d="M3.5 5v7c0 1.7 3.8 3 8.5 3s8.5-1.3 8.5-3V5"/>
+      <path d="M3.5 12v7c0 1.7 3.8 3 8.5 3s8.5-1.3 8.5-3v-7"/>
+    </symbol>
+    <symbol id="icon-network" viewBox="0 0 24 24">
+      <circle cx="12" cy="5" r="2.5"/>
+      <circle cx="5" cy="18" r="2.5"/>
+      <circle cx="19" cy="18" r="2.5"/>
+      <path d="m10.7 7.2-4.4 8.5M13.3 7.2l4.4 8.5M7.5 18h9"/>
+    </symbol>
+    <symbol id="icon-activity" viewBox="0 0 24 24">
+      <path d="M3 12h4l3-8 5 16 3-8h3"/>
+    </symbol>
+    <symbol id="icon-search" viewBox="0 0 24 24">
+      <circle cx="10.8" cy="10.8" r="7.2"/>
+      <path d="m16 16 5 5"/>
+    </symbol>
+    <symbol id="icon-upload" viewBox="0 0 24 24">
+      <path d="M12 16V3m-5 5 5-5 5 5"/>
+      <path d="M5 14v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/>
+    </symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24">
+      <path d="M20 7v5h-5"/>
+      <path d="M4 17v-5h5"/>
+      <path d="M5.5 9a7 7 0 0 1 12-2L20 12M4 12l2.5 5a7 7 0 0 0 12-2"/>
+    </symbol>
+    <symbol id="icon-sparkles" viewBox="0 0 24 24">
+      <path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z"/>
+      <path d="m19 14 1.1 2.9L23 18l-2.9 1.1L19 22l-1.1-2.9L15 18l2.9-1.1L19 14Z"/>
+    </symbol>
+    <symbol id="icon-chart" viewBox="0 0 24 24">
+      <path d="M3 3v18h18"/>
+      <path d="m7 14 4-4 4 3 6-7"/>
+    </symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 7v5l3 2"/>
+    </symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24">
+      <path d="m5 12 4 4L19 6"/>
+    </symbol>
+    <symbol id="icon-chevron" viewBox="0 0 24 24">
+      <path d="m9 18 6-6-6-6"/>
+    </symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 0 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 0 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V4a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 0 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2.9Z"/>
+    </symbol>
+    <symbol id="icon-terminal" viewBox="0 0 24 24">
+      <path d="m4 7 5 5-5 5"/>
+      <path d="M12 17h8"/>
+    </symbol>
+    <symbol id="icon-file" viewBox="0 0 24 24">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>
+      <path d="M14 2v6h6M8 13h8M8 17h8"/>
+    </symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24">
+      <path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z"/>
+      <path d="m9 12 2 2 4-4"/>
+    </symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14"/>
+    </symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24">
+      <path d="M3 6h18M8 6V4h8v2m3 0-1 14H6L5 6m4 4v6m6-6v6"/>
+    </symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24">
+      <path d="M12 3v12m-5-5 5 5 5-5"/>
+      <path d="M5 17v4h14v-4"/>
+    </symbol>
+  </svg>
+
+  <div class="shell" id="appShell">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#overview" aria-label="DataVision home">
+        <span class="brand-mark">DV</span>
+        <span class="brand-copy">
+          <strong>DataVision</strong>
+          <span>Intelligence platform</span>
+        </span>
+      </a>
+
+      <div class="workspace-selector">
+        <span class="workspace-avatar">M</span>
+        <span class="workspace-copy">
+          <strong>My workspace</strong>
+          <small>Personal environment</small>
+        </span>
+        <span class="workspace-chevron">⌄</span>
+      </div>
+
+      <div class="eyebrow sidebar-label">WORKSPACE</div>
+
+      <nav class="nav-list" aria-label="Primary navigation">
+        <button type="button" class="nav active" data-view="overview">
+          <svg class="nav-svg"><use href="#icon-dashboard"/></svg>
+          <span class="nav-label">Overview</span>
+        </button>
+
+        <button type="button" class="nav" data-view="datasets">
+          <svg class="nav-svg"><use href="#icon-database"/></svg>
+          <span class="nav-label">Data Workbench</span>
+          <span class="nav-count" id="datasetNavCount">0</span>
+        </button>
+
+        <button type="button" class="nav" data-view="models">
+          <svg class="nav-svg"><use href="#icon-network"/></svg>
+          <span class="nav-label">Model Lab</span>
+          <span class="nav-count" id="modelNavCount">0</span>
+        </button>
+
+        <button type="button" class="nav" data-view="stream">
+          <svg class="nav-svg"><use href="#icon-activity"/></svg>
+          <span class="nav-label">Live Stream</span>
+          <span class="nav-live-indicator"></span>
+        </button>
       </nav>
-      <div class="sidebar-foot"><div class="status-dot"></div><div><strong id="systemStatus">Online</strong><span>Realtime engine</span></div></div>
+
+      <div class="sidebar-separator"></div>
+      <div class="eyebrow sidebar-label">QUICK ACCESS</div>
+
+      <nav class="nav-list" aria-label="Quick access">
+        <button type="button" class="nav" data-view="datasets">
+          <svg class="nav-svg"><use href="#icon-file"/></svg>
+          <span class="nav-label">All datasets</span>
+        </button>
+
+        <button type="button" class="nav" data-view="models">
+          <svg class="nav-svg"><use href="#icon-chart"/></svg>
+          <span class="nav-label">Benchmarks</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="sidebar-system-card">
+          <div class="sidebar-system-top">
+            <span class="connection-indicator" id="connectionIndicator"></span>
+            <span class="eyebrow">SYSTEM STATUS</span>
+          </div>
+          <strong id="systemStatus">Initializing</strong>
+          <p id="systemSubStatus">Checking application services</p>
+          <div class="system-progress-track">
+            <span class="system-progress-fill"></span>
+          </div>
+          <div class="sidebar-system-footer">
+            <span>API connection</span>
+            <span id="apiStatusLabel">Checking</span>
+          </div>
+        </div>
+
+        <div class="sidebar-footer">
+          <span>DATAVISION INTELLIGENCE</span>
+          <span class="mono">v2.0</span>
+        </div>
+      </div>
     </aside>
-    <main class="main">
+
+    <!-- Main workspace -->
+    <main class="main" id="main">
+
+      <!-- Global header -->
       <header class="topbar">
-        <div><div class="eyebrow">AI DATA INTELLIGENCE</div><h1 id="pageTitle">Operational overview</h1></div>
-        <div class="top-actions"><button class="ghost" id="refreshBtn">↻ Refresh</button><button class="primary" id="uploadBtn">＋ Ingest data</button><input id="fileInput" type="file" accept=".csv,.xlsx,.xls" hidden></div>
+        <div class="topbar-left">
+          <button type="button" class="mobile-menu" id="mobileMenuBtn" aria-label="Toggle sidebar">☰</button>
+          <div class="topbar-heading">
+            <div class="eyebrow" id="breadcrumb">DATAVISION / WORKSPACE</div>
+            <h1 id="pageTitle">Operational overview</h1>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <div class="system-clock" id="systemClock">
+            <span class="clock-dot"></span>
+            <span>Local workspace</span>
+          </div>
+
+          <button type="button" class="ghost button-icon-label" id="refreshBtn">
+            <svg class="icon"><use href="#icon-refresh"/></svg>
+            <span>Refresh</span>
+          </button>
+
+          <button type="button" class="primary" id="uploadBtn">
+            <svg class="icon"><use href="#icon-upload"/></svg>
+            <span>Ingest data</span>
+          </button>
+
+          <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" hidden>
+        </div>
       </header>
 
+      <!-- =========================================================
+           OVERVIEW
+      ========================================================== -->
       <section class="view active" id="view-overview">
-        <div class="hero"><div><div class="eyebrow">REALTIME ANALYTICS WORKSPACE</div><h2>Turn raw data into decisions.</h2><p>Profile, diagnose, model, explain and predict from one intelligent workflow.</p></div><div class="hero-chip"><span class="pulse"></span><span>Live event pipeline</span></div></div>
-        <div class="palette-strip" aria-label="DataVision spectrum"><i class="sw-ghost-purple"></i><i class="sw-old-brick"></i><i class="sw-electric-lavender"></i><i class="sw-jet-black"></i><i class="sw-lime"></i><i class="sw-blue"></i><i class="sw-wine"></i><i class="sw-yellow"></i><i class="sw-gold"></i><i class="sw-midnight-purple"></i><i class="sw-pink"></i><i class="sw-ghost-blue"></i><i class="sw-skyblue"></i><i class="sw-lava"></i><i class="sw-magenta"></i><i class="sw-ice-blue"></i><i class="sw-neon-blue"></i><i class="sw-dark-red"></i><i class="sw-electric-pink"></i><i class="sw-evergreen"></i><i class="sw-blue-forest"></i><i class="sw-uranum"></i><i class="sw-cosmic-red"></i><i class="sw-cosmic-blue"></i><i class="sw-sun-glow"></i><i class="sw-sun-yellow"></i><i class="sw-sunrise"></i><i class="sw-dark-forest"></i><i class="sw-solar-lava"></i></div>
-        <div class="metrics" id="metrics"></div>
-        <div class="grid-two">
-          <div class="panel"><div class="panel-head"><div><div class="eyebrow">DATASET INTELLIGENCE</div><h3>Latest data signal</h3></div><button class="ghost small" onclick="showView('datasets')">Open workbench →</button></div><div id="latestSignal" class="signal-empty">Ingest a dataset to activate intelligent profiling.</div></div>
-          <div class="panel"><div class="panel-head"><div><div class="eyebrow">MODEL LAB</div><h3>Model readiness</h3></div><button class="ghost small" onclick="showView('models')">Open model lab →</button></div><div id="modelReadiness" class="signal-empty">Train a model from the Data Workbench.</div></div>
+
+        <section class="hero hero-enhanced">
+          <img
+            class="hero-background-image"
+            src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1800&q=85"
+            alt=""
+            aria-hidden="true"
+            loading="eager"
+          >
+
+          <div class="hero-image-overlay"></div>
+          <div class="hero-orb hero-orb-one" aria-hidden="true"></div>
+          <div class="hero-orb hero-orb-two" aria-hidden="true"></div>
+          <div class="hero-particle-field" aria-hidden="true"></div>
+
+          <div class="hero-copy">
+            <div class="hero-kicker">
+              <span class="live-dot"></span>
+              INTELLIGENCE ENVIRONMENT
+            </div>
+
+            <h2>
+              Data is a signal.<br>
+              <span>Make it actionable.</span>
+            </h2>
+
+            <p>
+              Explore your datasets, discover hidden patterns, evaluate predictive
+              models, and turn raw information into measurable decisions.
+            </p>
+
+            <div class="hero-actions">
+              <button type="button" class="primary hero-primary" data-view="datasets">
+                <svg class="icon"><use href="#icon-database"/></svg>
+                Explore data
+              </button>
+
+              <button type="button" class="ghost hero-secondary" data-view="models">
+                <svg class="icon"><use href="#icon-sparkles"/></svg>
+                Open Model Lab
+                <span class="arrow-small">↗</span>
+              </button>
+            </div>
+
+            <div class="hero-footnote">
+              <span class="hero-footnote-symbol">✳</span>
+              Your workspace. Your datasets. Your intelligence pipeline.
+            </div>
+          </div>
+
+          <div class="hero-side-visual" aria-hidden="true">
+            <div class="hero-visual-orbit orbit-one"></div>
+            <div class="hero-visual-orbit orbit-two"></div>
+            <div class="hero-visual-core">
+              <span class="core-ring"></span>
+              <span class="core-label">DV</span>
+            </div>
+            <div class="hero-float-card hero-float-card-one">
+              <span class="float-card-dot"></span>
+              <span>DATA PIPELINE</span>
+              <strong>Ready to ingest</strong>
+            </div>
+            <div class="hero-float-card hero-float-card-two">
+              <span class="float-card-symbol">↗</span>
+              <span>INTELLIGENCE</span>
+              <strong>Discover patterns</strong>
+            </div>
+          </div>
+
+          <div class="hero-bottom">
+            <span><span class="live-dot"></span> Workspace initialized</span>
+            <span class="mono">DV / 001</span>
+          </div>
+        </section>
+
+        <!-- Summary metrics are populated by app.js -->
+        <div class="section-divider-title">
+          <span class="eyebrow">WORKSPACE SNAPSHOT</span>
+          <span class="section-divider-line"></span>
+          <span class="muted">Live application data</span>
         </div>
-        <div class="panel"><div class="panel-head"><div><div class="eyebrow">ACTIVITY</div><h3>Realtime operational feed</h3></div><span class="live-label"><span class="pulse"></span> streaming</span></div><div id="activityFeed" class="feed"></div></div>
+
+        <div class="metrics" id="metrics">
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Datasets</span>
+              <span class="metric-icon">▦</span>
+            </div>
+            <div class="metric-value">0</div>
+            <div class="metric-bottom">Awaiting ingestion</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Data records</span>
+              <span class="metric-icon">⌘</span>
+            </div>
+            <div class="metric-value">0</div>
+            <div class="metric-bottom">No records loaded</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Trained models</span>
+              <span class="metric-icon">◇</span>
+            </div>
+            <div class="metric-value">0</div>
+            <div class="metric-bottom">No benchmarks yet</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Pipeline status</span>
+              <span class="metric-icon">⌁</span>
+            </div>
+            <div class="metric-value">Ready</div>
+            <div class="metric-bottom">Waiting for input data</div>
+          </article>
+        </div>
+
+        <!-- Primary analytics row -->
+        <div class="grid-two overview-primary-grid">
+
+          <section class="panel overview-chart-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">DATA EXPLORATION</div>
+                <h3>Dataset landscape</h3>
+                <p>Understand your data inventory and structure.</p>
+              </div>
+              <span class="tag purple">WORKSPACE</span>
+            </div>
+
+            <div class="dataset-landscape">
+              <div class="landscape-illustration" aria-hidden="true">
+                <div class="landscape-grid"></div>
+                <div class="landscape-column column-a"></div>
+                <div class="landscape-column column-b"></div>
+                <div class="landscape-column column-c"></div>
+                <div class="landscape-column column-d"></div>
+                <div class="landscape-column column-e"></div>
+                <div class="landscape-baseline"></div>
+              </div>
+
+              <div class="landscape-caption">
+                <span>
+                  <strong id="landscapeDatasetCount">0 datasets</strong>
+                  <small>Available for analysis</small>
+                </span>
+                <button type="button" class="ghost small" data-view="datasets">
+                  Open workbench <span>→</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel overview-signal-panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">DATASET INTELLIGENCE</div>
+                <h3>Latest data signal</h3>
+                <p>Recent profiling and quality findings.</p>
+              </div>
+              <span class="panel-status-icon">✳</span>
+            </div>
+
+            <div id="latestSignal" class="signal-empty">
+              <div class="empty-icon">⌁</div>
+              <strong>Awaiting your first dataset</strong>
+              <span>Upload structured data to activate profiling, quality checks, and analytical signals.</span>
+              <button type="button" class="ghost small" data-view="datasets">Go to Data Workbench →</button>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Model readiness -->
+        <section class="panel model-readiness-panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">PREDICTIVE INTELLIGENCE</div>
+              <h3>Model readiness</h3>
+              <p>Track the path from prepared data to a trained predictive model.</p>
+            </div>
+            <button type="button" class="ghost small" data-view="models">Open Model Lab →</button>
+          </div>
+
+          <div class="readiness-pipeline">
+            <div class="readiness-step">
+              <span class="readiness-step-number">01</span>
+              <span class="readiness-step-icon">▦</span>
+              <strong>Ingest</strong>
+              <small>Load a dataset</small>
+              <span class="readiness-step-status">Pending input</span>
+            </div>
+
+            <span class="pipeline-connector" aria-hidden="true">⟶</span>
+
+            <div class="readiness-step">
+              <span class="readiness-step-number">02</span>
+              <span class="readiness-step-icon">⌕</span>
+              <strong>Profile</strong>
+              <small>Inspect quality</small>
+              <span class="readiness-step-status">Pending input</span>
+            </div>
+
+            <span class="pipeline-connector" aria-hidden="true">⟶</span>
+
+            <div class="readiness-step">
+              <span class="readiness-step-number">03</span>
+              <span class="readiness-step-icon">◇</span>
+              <strong>Train</strong>
+              <small>Evaluate pipelines</small>
+              <span class="readiness-step-status">Pending input</span>
+            </div>
+
+            <span class="pipeline-connector" aria-hidden="true">⟶</span>
+
+            <div class="readiness-step">
+              <span class="readiness-step-number">04</span>
+              <span class="readiness-step-icon">↗</span>
+              <strong>Predict</strong>
+              <small>Run inference</small>
+              <span class="readiness-step-status">Pending input</span>
+            </div>
+          </div>
+
+          <div id="modelReadiness" class="signal-empty readiness-message">
+            <span>Train a model after inspecting your dataset to activate model metrics and prediction workflows.</span>
+          </div>
+        </section>
+
+        <!-- Activity and connection status -->
+        <div class="grid-two">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">OPERATIONAL TELEMETRY</div>
+                <h3>Recent activity</h3>
+                <p>Ingestion, profiling, and modeling events.</p>
+              </div>
+              <button type="button" class="ghost small" data-view="stream">View event stream →</button>
+            </div>
+            <div id="activityFeed" class="feed">
+              <div class="empty-state">
+                <strong>No activity recorded</strong>
+                <p>Actions performed in this workspace will appear here when your application records them.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">SYSTEM OBSERVABILITY</div>
+                <h3>Service overview</h3>
+                <p>Connection and workspace health indicators.</p>
+              </div>
+              <span class="tag green">CLIENT ACTIVE</span>
+            </div>
+
+            <div class="service-list">
+              <div class="service-row">
+                <span class="service-icon">UI</span>
+                <span class="service-copy">
+                  <strong>Web workspace</strong>
+                  <small>Dashboard interface</small>
+                </span>
+                <span class="tag green">Loaded</span>
+              </div>
+
+              <div class="service-row">
+                <span class="service-icon">API</span>
+                <span class="service-copy">
+                  <strong>Application API</strong>
+                  <small>Backend availability</small>
+                </span>
+                <span class="tag yellow" id="backendServiceBadge">Checking</span>
+              </div>
+
+              <div class="service-row">
+                <span class="service-icon">DB</span>
+                <span class="service-copy">
+                  <strong>Data persistence</strong>
+                  <small>Backend storage status</small>
+                </span>
+                <span class="tag yellow" id="databaseServiceBadge">Unknown</span>
+              </div>
+
+              <div class="service-row">
+                <span class="service-icon">SSE</span>
+                <span class="service-copy">
+                  <strong>Event stream</strong>
+                  <small>Realtime delivery channel</small>
+                </span>
+                <span class="tag yellow" id="streamServiceBadge">Checking</span>
+              </div>
+            </div>
+
+            <p class="fine-print">
+              Service health is confirmed only when the backend reports it. Interface availability does not guarantee API or database availability.
+            </p>
+          </section>
+        </div>
+
       </section>
 
+      <!-- =========================================================
+           DATA WORKBENCH
+      ========================================================== -->
       <section class="view" id="view-datasets">
-        <div class="section-head"><div><div class="eyebrow">DATA WORKBENCH</div><h2>Datasets & intelligence</h2><p>Upload data, inspect quality, discover patterns and select a target for AutoML.</p></div></div>
-        <div class="grid-two">
-          <div class="panel"><div class="dropzone" id="dropzone"><div class="drop-icon">↑</div><strong>Drop CSV or Excel here</strong><span>or click to browse · max 50 MB</span></div></div>
-          <div class="panel"><div class="panel-head"><div><div class="eyebrow">PERSISTED DATASETS</div><h3>Inventory</h3></div></div><div id="datasetList" class="dataset-list"></div></div>
+
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">DATA WORKBENCH / EXPLORATION</div>
+            <h2>Datasets & intelligence</h2>
+            <p>
+              Bring structured data into the workspace, inspect records,
+              identify missing values, explore relationships, and prepare
+              a target for machine learning.
+            </p>
+          </div>
+
+          <div class="section-head-actions">
+            <button type="button" class="ghost" id="exportDatasetBtn">
+              <svg class="icon"><use href="#icon-download"/></svg>
+              Export report
+            </button>
+          </div>
         </div>
-        <div class="panel" id="analysisPanel" hidden>
-          <div class="panel-head"><div><div class="eyebrow">AUTOMATED ANALYSIS</div><h3 id="analysisTitle">Dataset profile</h3></div><button class="ghost small" id="deleteDatasetBtn">Delete dataset</button></div>
+
+        <!-- Upload and inventory -->
+        <div class="grid-two datasets-top-grid">
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">DATA INGESTION</div>
+                <h3>Import your dataset</h3>
+                <p>Select a local file for analysis.</p>
+              </div>
+              <span class="tag purple">CSV / EXCEL</span>
+            </div>
+
+            <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Choose or drop a CSV or Excel dataset">
+              <div class="dropzone-decor" aria-hidden="true">
+                <span class="drop-orbit drop-orbit-one"></span>
+                <span class="drop-orbit drop-orbit-two"></span>
+                <span class="drop-icon">
+                  <svg class="large-icon"><use href="#icon-upload"/></svg>
+                </span>
+              </div>
+
+              <strong>Drop your dataset here</strong>
+              <span>or select a file from your computer</span>
+
+              <div class="dropzone-supported">
+                <span>.CSV</span>
+                <span>.XLSX</span>
+                <span>.XLS</span>
+              </div>
+
+              <small>Maximum size: 50 MB, subject to backend configuration.</small>
+            </div>
+
+            <div class="ingestion-notes">
+              <div>
+                <span class="note-icon">✓</span>
+                <span>Column and row inspection</span>
+              </div>
+              <div>
+                <span class="note-icon">✓</span>
+                <span>Missing-value analysis</span>
+              </div>
+              <div>
+                <span class="note-icon">✓</span>
+                <span>Numerical feature relationships</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">DATA INVENTORY</div>
+                <h3>Your datasets</h3>
+                <p>Open an imported dataset to review its profile.</p>
+              </div>
+              <span class="tag" id="inventoryCount">0 items</span>
+            </div>
+
+            <div id="datasetList" class="dataset-list">
+              <div class="empty-state">
+                <span class="empty-icon">▦</span>
+                <strong>Your inventory is empty</strong>
+                <p>Import a CSV or Excel file to begin exploring your data.</p>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- Dataset profile -->
+        <section class="panel analysis-main-panel" id="analysisPanel" hidden>
+
+          <div class="panel-head analysis-panel-heading">
+            <div>
+              <div class="eyebrow">AUTOMATED DATA INTELLIGENCE</div>
+              <h3 id="analysisTitle">Dataset profile</h3>
+              <p id="analysisSubtitle">Inspect data quality, structure, and statistical characteristics.</p>
+            </div>
+
+            <div class="inline-actions">
+              <span class="tag green" id="datasetStatusBadge">Loaded</span>
+              <button type="button" class="ghost small" id="downloadCleanedBtn">Export data</button>
+              <button type="button" class="ghost small danger" id="deleteDatasetBtn">
+                <svg class="icon"><use href="#icon-trash"/></svg>
+                Delete
+              </button>
+            </div>
+          </div>
+
+          <!-- Profile statistics populated by app.js -->
           <div id="profileSummary" class="profile-summary"></div>
-          <div class="grid-two analysis-grid"><div><h4>Intelligent signals</h4><div id="insights" class="insights"></div></div><div><h4>Numeric relationships</h4><div id="correlation" class="correlation"></div></div></div>
-          <div class="training-box"><div><div class="eyebrow">AUTOML</div><h3>Build a predictive model</h3><p>Choose a target column. The engine infers classification or regression and compares multiple pipelines.</p></div><div class="train-controls"><select id="targetSelect"></select><button class="primary" id="trainBtn">Run AutoML</button></div></div>
-          <div id="jobProgress" class="job-progress" hidden><div class="progress-track"><div id="progressBar"></div></div><div><span id="jobMessage">Queued</span><span id="progressPct">0%</span></div></div>
-        </div>
+
+          <!-- Dataset table -->
+          <section class="subsection">
+            <div class="subsection-heading">
+              <div>
+                <div class="eyebrow">RECORD EXPLORER</div>
+                <h3>Data preview</h3>
+              </div>
+              <span class="tag">Sample records</span>
+            </div>
+
+            <div class="table-wrap" id="previewTableWrap">
+              <table class="data-table" id="previewTable">
+                <thead>
+                  <tr>
+                    <th>Column</th>
+                    <th>Data type</th>
+                    <th>Sample value</th>
+                  </tr>
+                </thead>
+                <tbody id="previewTableBody">
+                  <tr>
+                    <td colspan="3">Select a dataset to display its records.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="table-pagination">
+              <span id="previewRecordCount">No records displayed</span>
+              <span id="previewPageLabel">Dataset preview</span>
+            </div>
+          </section>
+
+          <!-- Profile and insights -->
+          <div class="grid-two analysis-grid">
+
+            <section>
+              <div class="subsection-heading">
+                <div>
+                  <div class="eyebrow">FEATURE INVENTORY</div>
+                  <h3>Column profile</h3>
+                </div>
+              </div>
+              <div id="columnProfile" class="column-list">
+                <div class="empty-state">
+                  <strong>Column statistics will appear here</strong>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div class="subsection-heading">
+                <div>
+                  <div class="eyebrow">DATA QUALITY</div>
+                  <h3>Quality indicators</h3>
+                </div>
+              </div>
+              <div id="qualityProfile" class="quality-list">
+                <div class="quality-row">
+                  <strong>Missing values</strong>
+                  <span>Awaiting data</span>
+                </div>
+                <div class="quality-row">
+                  <strong>Duplicate records</strong>
+                  <span>Awaiting data</span>
+                </div>
+                <div class="quality-row">
+                  <strong>Column consistency</strong>
+                  <span>Awaiting data</span>
+                </div>
+                <div class="quality-row">
+                  <strong>Numeric distribution</strong>
+                  <span>Awaiting data</span>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <div class="grid-two analysis-grid">
+            <section>
+              <div class="subsection-heading">
+                <div>
+                  <div class="eyebrow">AUTOMATED DISCOVERY</div>
+                  <h3>Intelligent signals</h3>
+                </div>
+              </div>
+              <div id="insights" class="insights">
+                <div class="signal-empty">
+                  <strong>Insights will appear after profiling</strong>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <div class="subsection-heading">
+                <div>
+                  <div class="eyebrow">STATISTICAL RELATIONSHIPS</div>
+                  <h3>Numeric correlations</h3>
+                </div>
+              </div>
+              <div id="correlation" class="correlation">
+                <div class="signal-empty">
+                  <strong>Numeric relationships will appear here</strong>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- AutoML training -->
+          <section class="training-box">
+            <div class="training-box-copy">
+              <span class="training-icon">
+                <svg class="large-icon"><use href="#icon-sparkles"/></svg>
+              </span>
+              <div class="eyebrow">AUTOMATED MACHINE LEARNING</div>
+              <h3>Build a predictive model</h3>
+              <p>
+                Choose the value you want to predict. A compatible backend
+                can prepare features, compare candidate models, evaluate
+                performance, and return the best-performing pipeline.
+              </p>
+              <div class="training-capabilities">
+                <span>Feature analysis</span>
+                <span>Model comparison</span>
+                <span>Evaluation metrics</span>
+              </div>
+            </div>
+
+            <div class="train-controls">
+              <label class="target-control-label" for="targetSelect">Prediction target</label>
+              <select class="form-control" id="targetSelect">
+                <option value="">Select target column</option>
+              </select>
+              <button type="button" class="primary" id="trainBtn">
+                <svg class="icon"><use href="#icon-sparkles"/></svg>
+                Run AutoML
+              </button>
+              <small>Training requires a supported model-training endpoint.</small>
+            </div>
+          </section>
+
+          <!-- Training progress -->
+          <section class="job-progress" id="jobProgress" hidden>
+            <div class="job-progress-heading">
+              <div>
+                <div class="eyebrow">MODEL TRAINING JOB</div>
+                <strong id="jobMessage">Preparing training job</strong>
+              </div>
+              <span class="mono" id="progressPct">0%</span>
+            </div>
+
+            <div class="progress-track">
+              <div id="progressBar"></div>
+            </div>
+
+            <div class="progress-details">
+              <span id="jobStageLabel">Waiting for processing</span>
+              <span id="jobElapsedLabel">Job progress</span>
+            </div>
+          </section>
+
+        </section>
       </section>
 
+      <!-- =========================================================
+           MODEL LAB
+      ========================================================== -->
       <section class="view" id="view-models">
-        <div class="section-head"><div><div class="eyebrow">MODEL LAB</div><h2>Models, signals & prediction</h2><p>Inspect the latest trained model, its metrics and top explanatory features.</p></div></div>
-        <div class="grid-two"><div class="panel"><div class="panel-head"><div><div class="eyebrow">MODEL RANKING</div><h3>Latest benchmark</h3></div></div><div id="modelTable" class="model-table"></div></div><div class="panel"><div class="panel-head"><div><div class="eyebrow">EXPLAINABILITY</div><h3>Top feature signals</h3></div></div><div id="importance" class="importance"></div></div></div>
-        <div class="panel" id="predictPanel" hidden><div class="panel-head"><div><div class="eyebrow">PREDICTION</div><h3>Run a model inference</h3></div></div><div id="predictFields" class="predict-fields"></div><button class="primary" id="predictBtn">Generate prediction</button><div id="predictionResult" class="prediction-result"></div></div>
+
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">MODEL LAB / EXPERIMENTS</div>
+            <h2>Models, signals & predictions</h2>
+            <p>
+              Review benchmark results, compare candidate models, inspect
+              explanatory features, and run inference using a trained pipeline.
+            </p>
+          </div>
+
+          <span class="model-lab-badge">
+            <span class="live-dot"></span>
+            MODEL ENVIRONMENT
+          </span>
+        </div>
+
+        <!-- Model overview cards -->
+        <div class="metrics model-metrics" id="modelMetrics">
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Trained pipelines</span>
+              <span class="metric-icon">◇</span>
+            </div>
+            <div class="metric-value">0</div>
+            <div class="metric-bottom">No training results loaded</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Best performance</span>
+              <span class="metric-icon">↗</span>
+            </div>
+            <div class="metric-value">—</div>
+            <div class="metric-bottom">Depends on the evaluation metric</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Latest target</span>
+              <span class="metric-icon">⌕</span>
+            </div>
+            <div class="metric-value">—</div>
+            <div class="metric-bottom">No target selected</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Inference status</span>
+              <span class="metric-icon">⌁</span>
+            </div>
+            <div class="metric-value">Idle</div>
+            <div class="metric-bottom">Ready for a supported model</div>
+          </article>
+        </div>
+
+        <div class="grid-two">
+          <!-- Benchmark ranking: required ID preserved -->
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">PERFORMANCE BENCHMARKS</div>
+                <h3>Model ranking</h3>
+                <p>Models returned by the training service.</p>
+              </div>
+              <span class="tag purple">LATEST RUN</span>
+            </div>
+
+            <div id="modelTable" class="model-table">
+              <div class="empty-state">
+                <span class="empty-icon">◇</span>
+                <strong>No benchmark results yet</strong>
+                <p>Train a model from the Data Workbench to populate this ranking.</p>
+                <button type="button" class="ghost small" data-view="datasets">Open Data Workbench →</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Feature importance: required ID preserved -->
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <div class="eyebrow">MODEL EXPLAINABILITY</div>
+                <h3>Feature contribution</h3>
+                <p>Understand which input variables influence a model.</p>
+              </div>
+              <span class="tag">FEATURES</span>
+            </div>
+
+            <div id="importance" class="importance">
+              <div class="empty-state">
+                <span class="empty-icon">⌁</span>
+                <strong>Explanatory signals unavailable</strong>
+                <p>Feature importance will be displayed when the training service returns it.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Evaluation panel -->
+        <section class="panel evaluation-panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">EVALUATION & VALIDATION</div>
+              <h3>Model assessment</h3>
+              <p>Inspect the evaluation criteria returned by your backend.</p>
+            </div>
+            <span class="tag yellow">REQUIRES TRAINED MODEL</span>
+          </div>
+
+          <div class="evaluation-grid">
+            <div class="evaluation-card">
+              <span class="evaluation-symbol">01</span>
+              <strong>Generalization</strong>
+              <p>Validation performance against held-out observations.</p>
+              <span class="evaluation-result">No results</span>
+            </div>
+
+            <div class="evaluation-card">
+              <span class="evaluation-symbol">02</span>
+              <strong>Prediction error</strong>
+              <p>Classification or regression metrics appropriate to the target.</p>
+              <span class="evaluation-result">No results</span>
+            </div>
+
+            <div class="evaluation-card">
+              <span class="evaluation-symbol">03</span>
+              <strong>Model reliability</strong>
+              <p>Assess data leakage, overfitting, and other evaluation limitations.</p>
+              <span class="evaluation-result">Not evaluated</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Prediction panel: required ID preserved -->
+        <section class="panel predict-panel" id="predictPanel" hidden>
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">MODEL INFERENCE</div>
+              <h3>Generate a prediction</h3>
+              <p>Provide values matching the features expected by the selected model.</p>
+            </div>
+            <span class="tag green">INFERENCE WORKSPACE</span>
+          </div>
+
+          <div class="prediction-model-summary" id="predictionModelSummary">
+            <span class="model-status-icon">◇</span>
+            <span>
+              <strong>Selected model</strong>
+              <small>Model metadata will be supplied by the application.</small>
+            </span>
+          </div>
+
+          <div id="predictFields" class="predict-fields"></div>
+
+          <div class="prediction-actions">
+            <p class="fine-print">
+              Prediction output depends on the trained model and the inference API response.
+            </p>
+            <button type="button" class="primary" id="predictBtn">
+              <svg class="icon"><use href="#icon-sparkles"/></svg>
+              Generate prediction
+            </button>
+          </div>
+
+          <div id="predictionResult" class="prediction-result" aria-live="polite"></div>
+        </section>
+
+        <!-- Backend integration information -->
+        <section class="panel model-lab-note">
+          <div class="note-icon-large">
+            <svg class="large-icon"><use href="#icon-shield"/></svg>
+          </div>
+          <div>
+            <div class="eyebrow">MODEL INTEGRITY</div>
+            <h3>Metrics should represent measured performance</h3>
+            <p>
+              Benchmark scores, feature importance, and predictions should come
+              from the actual training and inference process. The interface does
+              not substitute placeholder scores for verified model results.
+            </p>
+          </div>
+        </section>
+
       </section>
 
-      <section class="view" id="view-stream"><div class="section-head"><div><div class="eyebrow">LIVE STREAM</div><h2>Realtime system events</h2><p>Training and ingestion events arrive through Server-Sent Events.</p></div></div><div class="panel"><div id="fullFeed" class="feed full"></div></div></section>
+      <!-- =========================================================
+           LIVE STREAM
+      ========================================================== -->
+      <section class="view" id="view-stream">
+
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">OBSERVABILITY / EVENT PIPELINE</div>
+            <h2>Realtime event stream</h2>
+            <p>
+              Review the ingestion, training, model-serving, and system events
+              received by this browser from your configured backend.
+            </p>
+          </div>
+
+          <div class="stream-health">
+            <span class="live-dot"></span>
+            <span id="streamHeaderStatus">Initializing connection</span>
+          </div>
+        </div>
+
+        <!-- Stream statistics -->
+        <div class="metrics stream-metrics">
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Connection</span>
+              <span class="metric-icon">⌁</span>
+            </div>
+            <div class="metric-value" id="streamConnectionValue">Checking</div>
+            <div class="metric-bottom">Server-Sent Events</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Received events</span>
+              <span class="metric-icon">≋</span>
+            </div>
+            <div class="metric-value" id="streamEventCount">0</div>
+            <div class="metric-bottom">Events received in this session</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Latest event</span>
+              <span class="metric-icon">◷</span>
+            </div>
+            <div class="metric-value" id="streamLastEvent">—</div>
+            <div class="metric-bottom">Most recent event timestamp</div>
+          </article>
+
+          <article class="metric">
+            <div class="metric-top">
+              <span class="metric-label">Stream mode</span>
+              <span class="metric-icon">↗</span>
+            </div>
+            <div class="metric-value" id="streamModeValue">SSE</div>
+            <div class="metric-bottom">Requires an available event endpoint</div>
+          </article>
+        </div>
+
+        <section class="panel stream-panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">EVENT MONITOR</div>
+              <h3>Incoming system events</h3>
+              <p>Events appear here as they are received by the application.</p>
+            </div>
+
+            <div class="inline-actions">
+              <span class="tag" id="streamEventBadge">0 events</span>
+              <button type="button" class="ghost small" id="clearStreamBtn">Clear view</button>
+            </div>
+          </div>
+
+          <div class="stream-toolbar">
+            <div class="stream-filters" id="streamFilters">
+              <button type="button" class="filter-button active" data-filter="all">All events</button>
+              <button type="button" class="filter-button" data-filter="ingestion">Ingestion</button>
+              <button type="button" class="filter-button" data-filter="training">Training</button>
+              <button type="button" class="filter-button" data-filter="prediction">Predictions</button>
+              <button type="button" class="filter-button" data-filter="system">System</button>
+            </div>
+
+            <span class="mono muted" id="streamUpdatedAt">No events yet</span>
+          </div>
+
+          <div id="fullFeed" class="feed full">
+            <div class="empty-state">
+              <span class="empty-icon">≋</span>
+              <strong>Waiting for incoming events</strong>
+              <p>
+                A live stream requires the backend to expose an SSE endpoint
+                and send events in a compatible format.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Event payload inspector -->
+        <section class="panel event-inspector-panel">
+          <div class="panel-head">
+            <div>
+              <div class="eyebrow">EVENT INSPECTOR</div>
+              <h3>Connection diagnostics</h3>
+              <p>Track the lifecycle of your event connection.</p>
+            </div>
+            <span class="tag" id="diagnosticStatusBadge">Awaiting connection</span>
+          </div>
+
+          <div class="diagnostics-list">
+            <div class="diagnostic-row">
+              <span class="diagnostic-key">Transport</span>
+              <span class="diagnostic-value">Server-Sent Events</span>
+            </div>
+
+            <div class="diagnostic-row">
+              <span class="diagnostic-key">Connection status</span>
+              <span class="diagnostic-value" id="diagnosticConnection">Not confirmed</span>
+            </div>
+
+            <div class="diagnostic-row">
+              <span class="diagnostic-key">Last received event</span>
+              <span class="diagnostic-value mono" id="diagnosticLastEvent">—</span>
+            </div>
+
+            <div class="diagnostic-row">
+              <span class="diagnostic-key">Backend availability</span>
+              <span class="diagnostic-value" id="diagnosticBackend">Unknown</span>
+            </div>
+          </div>
+
+          <p class="fine-print">
+            Realtime delivery is dependent on the server, event endpoint,
+            connection lifecycle, and browser network access.
+          </p>
+        </section>
+
+      </section>
+
+      <!-- Global footer -->
+      <footer class="workspace-footer">
+        <div class="footer-brand">
+          <span class="footer-mark">DV</span>
+          <span>DataVision Intelligence</span>
+        </div>
+
+        <div class="footer-center">
+          <span>ANALYZE</span>
+          <span class="footer-separator">/</span>
+          <span>UNDERSTAND</span>
+          <span class="footer-separator">/</span>
+          <span>PREDICT</span>
+        </div>
+
+        <div class="footer-right">
+          <span class="footer-dot"></span>
+          <span>Workspace interface active</span>
+        </div>
+      </footer>
+
     </main>
   </div>
-  <div id="toast" class="toast"></div>
+
+  <!-- Notifications -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <!-- Confirmation modal -->
+  <div
+    class="modal-backdrop"
+    id="confirmModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="confirmModalTitle"
+    hidden
+  >
+    <div class="modal">
+      <div class="modal-head">
+        <span class="modal-symbol">!</span>
+        <button type="button" class="ghost modal-close" id="closeConfirmModal" aria-label="Close dialog">×</button>
+      </div>
+
+      <h3 id="confirmModalTitle">Confirm action</h3>
+      <p id="confirmModalMessage">Review this action before proceeding.</p>
+
+      <div class="modal-actions">
+        <button type="button" class="ghost" id="cancelConfirmBtn">Cancel</button>
+        <button type="button" class="primary" id="acceptConfirmBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="./app.js"></script>
