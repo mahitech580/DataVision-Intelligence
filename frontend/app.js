@@ -1082,11 +1082,15 @@ async function uploadDatasetToBackend(file, dataset) {
     }
 
     updateConnectionUI();
+    renderDatasetList();
+    updateTrainingAvailability();
     return data;
   } catch (error) {
     dataset.backendUpload = "failed";
     dataset.backendError = error.message;
     updateConnectionUI();
+    renderDatasetList();
+    updateTrainingAvailability();
 
     console.warn(
       "The file is available for browser-side profiling, but backend ingestion failed:",
@@ -1612,7 +1616,11 @@ function renderDatasetList() {
 
       const backendTag = dataset.serverId !== null && dataset.serverId !== undefined
         ? `<span class="tag green">Persisted</span>`
-        : `<span class="tag yellow">Local</span>`;
+        : dataset.backendUpload === "pending"
+          ? `<span class="tag yellow">Uploading</span>`
+          : dataset.backendUpload === "failed"
+            ? `<span class="tag red" title="${escapeHTML(dataset.backendError || "Upload failed")}">Upload failed</span>`
+            : `<span class="tag yellow">Local</span>`;
 
       return `
         <button
@@ -1638,6 +1646,38 @@ function renderDatasetList() {
 
   setText("#inventoryCount", `${state.datasets.length} item${state.datasets.length === 1 ? "" : "s"}`);
   setText("#datasetNavCount", formatNumber(state.datasets.length));
+  updateTrainingAvailability();
+}
+
+function updateTrainingAvailability() {
+  const button = $("#trainBtn");
+  const message = $("#trainingAvailability");
+  if (!button) return;
+
+  const dataset = getActiveDataset();
+  const hasServerId = dataset?.serverId !== null && dataset?.serverId !== undefined;
+  const pending = dataset?.backendUpload === "pending";
+  const canTrain = Boolean(dataset && hasServerId && !pending && !state.training);
+
+  button.disabled = !canTrain;
+
+  let helper = "Import a dataset and confirm backend storage before training.";
+
+  if (state.training) {
+    helper = "An AutoML job is in progress. Keep this page open to monitor the result.";
+  } else if (!dataset) {
+    helper = "Import a dataset, then wait for backend ingestion to finish.";
+  } else if (hasServerId && dataset.backendUpload === "success") {
+    helper = "Dataset is persisted. Choose a prediction target to start AutoML.";
+  } else if (pending) {
+    helper = "Uploading and profiling on the backend… AutoML will unlock when the dataset is persisted.";
+  } else if (dataset.backendUpload === "failed") {
+    helper = `Backend upload failed: ${dataset.backendError || "connection unavailable"}. Re-import the file after checking the API connection.`;
+  } else {
+    helper = "This local dataset is not persisted by the backend yet.";
+  }
+
+  if (message) message.textContent = helper;
 }
 
 async function syncPersistedDatasets() {
@@ -3054,6 +3094,7 @@ async function runAutoML() {
     state.training = false;
     state.trainingJob = null;
     setButtonLoading(button, false);
+    updateTrainingAvailability();
     renderMetrics();
   }
 }
