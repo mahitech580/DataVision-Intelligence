@@ -1849,6 +1849,20 @@ async function syncPersistedDatasets() {
       target: dataset.savedTarget
     }, index, dataset, dataset.savedTarget));
 
+    // The persisted benchmark preserves model evaluation order, not ranking.
+    // Recompute the table order when restoring saved experiments after reload.
+    normalized.sort((a, b) => {
+      if (a.status === "failed" && b.status !== "failed") return 1;
+      if (b.status === "failed" && a.status !== "failed") return -1;
+
+      const scoreA = numericValue(a.score);
+      const scoreB = numericValue(b.score);
+      if (scoreA === null && scoreB === null) return 0;
+      if (scoreA === null) return 1;
+      if (scoreB === null) return -1;
+      return scoreB - scoreA;
+    });
+
     let best = normalized.find(model => model.name === dataset.savedModelName);
 
     if (!best) {
