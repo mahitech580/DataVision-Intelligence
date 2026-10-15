@@ -82,6 +82,16 @@ def home():
     return FileResponse(FRONTEND_DIR / "index.html")
 
 
+@app.get("/styles.css", include_in_schema=False)
+def frontend_stylesheet():
+    return FileResponse(FRONTEND_DIR / "styles.css", media_type="text/css")
+
+
+@app.get("/app.js", include_in_schema=False)
+def frontend_script():
+    return FileResponse(FRONTEND_DIR / "app.js", media_type="application/javascript")
+
+
 @app.get("/health")
 def health():
     checks = {}
