@@ -252,7 +252,7 @@ Files inside `models/` and `data/uploads/` may be generated at runtime. Avoid co
 
 ### Prerequisites
 
-- Python 3.10 or a compatible version supported by the project dependencies.
+- Python 3.12 (the version used by the GitHub Actions test workflow), or another version supported by all pinned dependencies.
 - pip.
 - Git.
 - A modern web browser.
