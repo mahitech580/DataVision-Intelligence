@@ -4132,3 +4132,117 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* =========================================================
+   INTERACTIVE EXPLORATORY ANALYTICS CHARTS
+   ========================================================= */
+
+.exploratory-analytics {
+  margin-top: 27px;
+}
+
+.chart-grid {
+  align-items: stretch;
+}
+
+.chart-panel {
+  min-width: 0;
+  padding: 18px;
+  overflow: hidden;
+}
+
+.chart-panel .panel-head {
+  margin-bottom: 15px;
+}
+
+.chart-panel-symbol {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(167, 139, 250, 0.17);
+  border-radius: 9px;
+  background: rgba(167, 139, 250, 0.065);
+  color: var(--purple-light);
+  font-size: 14px;
+}
+
+.chart-panel-symbol.cyan {
+  border-color: rgba(103, 232, 249, 0.17);
+  background: rgba(103, 232, 249, 0.055);
+  color: var(--cyan);
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.chart-controls label {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.chart-controls .form-control {
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: 10px;
+}
+
+.chart-panel .chart-container {
+  min-width: 0;
+  height: 235px;
+}
+
+.chart-panel .chart-container.small-chart {
+  height: 220px;
+}
+
+.chart-panel .chart-container canvas {
+  max-height: 100%;
+}
+
+.chart-panel-wide {
+  margin-top: 2px;
+}
+
+.chart-note {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: var(--subtle);
+  font-size: 9px;
+  line-height: 1.7;
+}
+
+.chart-panel .signal-empty {
+  min-height: 100px;
+}
+
+@media (max-width: 680px) {
+  .exploratory-analytics {
+    margin-top: 20px;
+  }
+
+  .chart-panel {
+    padding: 15px;
+  }
+
+  .chart-controls {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .chart-panel .chart-container {
+    height: 220px;
+  }
+
+  .chart-panel .chart-container.small-chart {
+    height: 230px;
+  }
+}
