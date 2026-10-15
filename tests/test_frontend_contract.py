@@ -1,6 +1,4 @@
 from pathlib import Path
-import re
-
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
@@ -42,7 +40,7 @@ def test_browser_endpoints_match_implemented_fastapi_routes():
         assert route in BACKEND
 
     assert 'async function pollTrainingJob(jobId)' in APP_JS
-    assert '"/api/jobs/' in APP_JS
+    assert '`/api/jobs/${encodeURIComponent(jobId)}`' in APP_JS
     assert '"/importance' in APP_JS or '}/importance' in APP_JS
     assert '}/predict' in APP_JS
 
@@ -63,4 +61,4 @@ def test_eda_chart_controls_have_matching_renderers():
         "renderCategoryDistributionChart",
         "renderMissingnessChart",
     ]:
-        assert re.search(rf"function {renderer}\\(", APP_JS)
+        assert f"function {renderer}(" in APP_JS
