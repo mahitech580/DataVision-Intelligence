@@ -28,11 +28,13 @@
 const API_BASE = String(window.DATAVISION_API_BASE || "").replace(/\/+$/, "");
 
 const ENDPOINTS = {
-  health: ["/api/health", "/health"],
-  upload: "/api/datasets",
-  train: "/api/train",
-  predict: "/api/predict",
-  events: ["/api/events", "/events"]
+  health: ["/health", "/api/health"],
+  datasets: "/api/datasets",
+  upload: "/api/datasets/upload",
+  train: "/api/datasets",
+  predict: "/api/datasets",
+  importance: "/api/datasets",
+  events: ["/api/stream"]
 };
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -1027,43 +1029,123 @@ async function uploadDatasetToBackend(file, dataset) {
   try {
     const response = await apiRequest(
       ENDPOINTS.upload,
-      {
-        method: "POST",
-        body: formData
-      },
+      { method: "POST", body: formData },
       60000
     );
 
     const data = response?.dataset || response?.data || response;
+    const serverId = response?.id ?? data?.id ?? data?.dataset_id ?? data?.datasetId;
 
-    dataset.serverId =
-      data?.id ??
-      data?.dataset_id ??
-      data?.datasetId ??
-      null;
+    if (serverId === null || serverId === undefined) {
+      throw new Error("The upload endpoint did not return a dataset ID.");
+    }
 
+    dataset.serverId = serverId;
+    dataset.serverProfile = data?.profile || response?.profile || null;
+    dataset.serverInsights = Array.isArray(data?.insights)
+      ? data.insights
+      : Array.isArray(response?.insights)
+        ? response.insights
+        : [];
     dataset.backendUpload = "success";
     dataset.serverResponse = data;
+
+    if (dataset.serverProfile) {
+      dataset.analysis = normalizeServerProfile(dataset.serverProfile, dataset.rows || []);
+      dataset.columns = dataset.analysis.columns;
+    }
 
     recordEvent(
       "ingestion",
       "Backend ingestion complete",
-      `${dataset.name} was accepted by the configured ingestion endpoint.`,
+      `${dataset.name} was persisted by the backend (dataset ID ${serverId}).`,
       "✓"
     );
 
-    updateConnectionUI();
+    renderDatasetList();
+    renderMetrics();
 
+    if (dataset.id === state.activeDatasetId) {
+      renderDatasetProfile(dataset);
+    }
+
+    updateConnectionUI();
+    return data;
   } catch (error) {
     dataset.backendUpload = "failed";
     dataset.backendError = error.message;
     updateConnectionUI();
 
     console.warn(
-      "The file is available for local profiling, but backend ingestion failed:",
+      "The file is available for browser-side profiling, but backend ingestion failed:",
       error.message
     );
+
+    throw error;
   }
+}
+
+function normalizeServerProfile(profile, localRows = []) {
+  const shape = profile?.shape || {};
+  const serverColumns = Array.isArray(profile?.columns) ? profile.columns : [];
+  const names = serverColumns.map(column => String(column.name ?? column.column ?? "")).filter(Boolean);
+  const rowCount = safeNumber(shape.rows, localRows.length);
+  const columnCount = safeNumber(shape.columns, names.length);
+  const cells = rowCount * columnCount;
+  const missingCells = safeNumber(profile?.missing_total, 0);
+  const duplicateRows = safeNumber(profile?.duplicate_rows, 0);
+  const numericNames = new Set(profile?.numerical_columns || []);
+  const emptyColumns = new Set(profile?.empty_columns || []);
+  const constantColumns = new Set(profile?.constant_columns || []);
+
+  const columnStats = serverColumns.map(column => {
+    const name = String(column.name ?? column.column ?? "");
+    const missing = safeNumber(column.missing, 0);
+    const unique = safeNumber(column.unique, 0);
+    const dtype = String(column.dtype || column.type || "Unknown");
+    const stats = column.stats || {};
+    const numeric = numericNames.has(name) || /int|float|number|decimal/i.test(dtype);
+
+    return {
+      name,
+      type: numeric ? "Numeric" : dtype,
+      total: rowCount,
+      missing,
+      missingPct: safeNumber(column.missing_pct, rowCount ? missing / rowCount * 100 : 0),
+      unique,
+      uniquePct: rowCount ? unique / Math.max(1, rowCount - missing) * 100 : 0,
+      numeric,
+      mean: stats.mean ?? null,
+      median: stats.median ?? null,
+      std: stats.std ?? null,
+      min: stats.min ?? null,
+      max: stats.max ?? null,
+      topValues: column.top_values || []
+    };
+  });
+
+  return {
+    rowCount,
+    columnCount,
+    columns: names,
+    columnStats,
+    cells,
+    missingCells,
+    missingPct: safeNumber(
+      cells ? missingCells / cells * 100 : 0,
+      0
+    ),
+    duplicates: duplicateRows,
+    duplicatePct: safeNumber(profile?.duplicate_pct, rowCount ? duplicateRows / rowCount * 100 : 0),
+    numericCount: numericNames.size || columnStats.filter(column => column.numeric).length,
+    emptyColumns: emptyColumns.size,
+    constantColumns: constantColumns.size,
+    memoryMB: safeNumber(profile?.memory_mb, 0),
+    qualityScore: profile?.data_quality_score ?? null,
+    identifierCandidates: profile?.identifier_candidates || [],
+    highCardinality: profile?.high_cardinality || [],
+    serverProfile: profile
+  };
 }
 
 async function checkBackendHealth() {
@@ -1318,9 +1400,9 @@ function openEventEndpoint(index) {
 function classifyEventType(value) {
   const text = String(value || "").toLowerCase();
 
-  if (/ingest|upload|dataset|import/.test(text)) return "ingestion";
-  if (/train|model|automl|benchmark|fit/.test(text)) return "training";
   if (/predict|inference|forecast/.test(text)) return "prediction";
+  if (/train|model|automl|benchmark|fit|job|complete|warning/.test(text)) return "training";
+  if (/ingest|upload|dataset|profile|import/.test(text)) return "ingestion";
 
   return "system";
 }
@@ -1331,14 +1413,14 @@ function handleStreamMessage(payload) {
       ? payload
       : { message: String(payload) };
 
-  const type = classifyEventType(
-    item.type || item.event || item.category || item.name
-  );
+  const kind = item.kind || item.type || item.event || item.category || item.name;
+  const type = classifyEventType(`${kind || ""} ${item.message || ""}`);
 
   const title =
     item.title ||
     item.name ||
     item.event ||
+    item.kind ||
     item.type ||
     "Backend event";
 
@@ -1350,6 +1432,11 @@ function handleStreamMessage(payload) {
 
   state.streamEventsReceived++;
   state.streamLastEventAt = new Date();
+
+  if (state.trainingJob && item.job_id && item.job_id === state.trainingJob.id) {
+    const progress = Number.isFinite(Number(item.progress)) ? Number(item.progress) : 0;
+    updateTrainingProgress(progress, item.message || "Training in progress", item.kind || "running");
+  }
 
   recordEvent(type, title, message, "≋", true);
 
@@ -2013,9 +2100,22 @@ function populateTargetOptions(dataset) {
    DATASET DELETION
    ========================================================= */
 
-function deleteActiveDataset() {
+async function deleteActiveDataset() {
   const dataset = getActiveDataset();
   if (!dataset) return;
+
+  if (dataset.serverId !== null && dataset.serverId !== undefined) {
+    try {
+      await apiRequest(
+        `${ENDPOINTS.datasets}/${encodeURIComponent(dataset.serverId)}`,
+        { method: "DELETE" },
+        20000
+      );
+    } catch (error) {
+      showToast(`Backend deletion failed: ${error.message}`, "error");
+      return;
+    }
+  }
 
   state.datasets = state.datasets.filter(item => item.id !== dataset.id);
   state.activeDatasetId = state.datasets[0]?.id || null;
@@ -2026,14 +2126,10 @@ function deleteActiveDataset() {
     state.predictionFeatures = [];
   }
 
-  state.datasets.forEach(item => {
-    item.analysis = item.analysis || analyzeDataset(item);
-  });
-
   recordEvent(
     "ingestion",
     "Dataset removed",
-    `${dataset.name} was removed from the current browser session.`,
+    `${dataset.name} was removed from the browser session and backend storage when it had a server ID.`,
     "×"
   );
 
@@ -2047,7 +2143,7 @@ function deleteActiveDataset() {
     setHidden("#analysisPanel", true);
   }
 
-  showToast("Dataset removed from this session.", "success");
+  showToast("Dataset removed.", "success");
 }
 
 /* =========================================================
@@ -2246,16 +2342,24 @@ async function runAutoML() {
     return;
   }
 
-  if (!dataset.rows.length) {
-    showToast("This dataset does not contain any records.", "error");
+  if (dataset.serverId === null || dataset.serverId === undefined) {
+    showToast(
+      "This dataset has not been persisted by the backend yet. Wait for upload to finish or check the API connection.",
+      "error"
+    );
+    return;
+  }
+
+  if (!dataset.rows?.length && !dataset.serverProfile) {
+    showToast("The selected dataset has no readable records or server profile.", "error");
     return;
   }
 
   state.training = true;
-  setButtonLoading(button, true, "Training model");
-
+  state.trainingJob = null;
+  setButtonLoading(button, true, "Queueing job");
   setHidden("#jobProgress", false);
-  updateTrainingProgress(5, "Preparing dataset", "Preparing request");
+  updateTrainingProgress(0, "Submitting AutoML job", "Queued");
 
   recordEvent(
     "training",
@@ -2267,62 +2371,58 @@ async function runAutoML() {
   renderMetrics();
 
   try {
-    const body = {
-      dataset_id: dataset.serverId || dataset.id,
-      dataset_name: dataset.name,
-      target: targetColumn,
-      target_column: targetColumn,
-      task: inferTaskType(dataset, targetColumn),
-      columns: getColumnNames(dataset),
-      row_count: dataset.rows.length
-    };
+    const url = `${ENDPOINTS.train}/${encodeURIComponent(dataset.serverId)}/train?target=${encodeURIComponent(targetColumn)}`;
 
-    // If backend ingestion failed, send the data with the training request.
-    // Limit the fallback payload to keep requests manageable.
-    if (!dataset.serverId) {
-      if (dataset.rows.length > MAX_LOCAL_TRAIN_ROWS) {
-        throw new Error(
-          `The backend did not accept this dataset. Reconfigure the ingestion endpoint before training files above ${formatNumber(MAX_LOCAL_TRAIN_ROWS)} rows.`
-        );
-      }
-
-      body.rows = dataset.rows;
-      body.data = dataset.rows;
-    }
-
-    updateTrainingProgress(20, "Submitting training job", "Waiting for backend");
-
-    const response = await apiRequest(
-      ENDPOINTS.train,
-      {
-        method: "POST",
-        body: JSON.stringify(body)
-      },
-      120000
+    const queued = await apiRequest(
+      url,
+      { method: "POST" },
+      30000
     );
 
-    updateTrainingProgress(85, "Processing training results", "Parsing model response");
+    const jobId = queued?.job_id || queued?.id;
 
-    const result = normalizeTrainingResponse(response, dataset, targetColumn);
+    if (!jobId) {
+      throw new Error("The backend did not return a training job ID.");
+    }
+
+    state.trainingJob = { id: String(jobId), datasetId: dataset.id, target: targetColumn };
+    updateTrainingProgress(2, "Job queued", "Waiting for background worker");
+    setButtonLoading(button, true, "Training model");
+
+    const completedJob = await pollTrainingJob(String(jobId));
+
+    if (completedJob.status !== "complete") {
+      throw new Error(completedJob.message || "The training job did not complete.");
+    }
+
+    updateTrainingProgress(94, "Interpreting benchmark results", "Normalizing backend response");
+
+    const result = normalizeTrainingResponse(completedJob, dataset, targetColumn);
 
     if (!result.models.length && !result.bestModel) {
-      throw new Error(
-        "The training endpoint responded, but no model result was found in its response."
-      );
+      throw new Error("The completed job did not contain any model benchmark results.");
     }
 
     state.models = result.models;
     state.activeModel = result.bestModel || result.models[0];
-    state.predictionFeatures = getModelFeatureNames(state.activeModel, dataset, targetColumn);
+    state.predictionFeatures = getModelFeatureNames(
+      state.activeModel,
+      dataset,
+      targetColumn
+    );
 
-    updateTrainingProgress(100, "Training response received", "Completed");
+    state.activeModel.serverDatasetId = dataset.serverId;
+
+    updateTrainingProgress(100, "Training completed", "Model and metrics received");
 
     recordEvent(
       "training",
-      "Training response received",
-      `${result.models.length} model result(s) returned for target "${targetColumn}".`,
+      "Training completed",
+      `${result.models.length} benchmark result(s) returned for target "${targetColumn}".`,
       "✓"
     );
+
+    await loadFeatureImportance(dataset);
 
     renderAll();
     renderModels();
@@ -2330,12 +2430,12 @@ async function runAutoML() {
     renderPredictionPanel();
 
     showView("models");
-    showToast("Model training response received successfully.", "success");
+    showToast("AutoML training completed successfully.", "success");
 
   } catch (error) {
     console.error("AutoML request failed:", error);
 
-    updateTrainingProgress(0, "Training unavailable", error.message);
+    updateTrainingProgress(0, "Training failed", error.message);
 
     recordEvent(
       "training",
@@ -2347,9 +2447,41 @@ async function runAutoML() {
     showToast(error.message || "Model training failed.", "error");
   } finally {
     state.training = false;
+    state.trainingJob = null;
     setButtonLoading(button, false);
     renderMetrics();
   }
+}
+
+async function pollTrainingJob(jobId) {
+  const maxAttempts = 240;
+  const delayMs = 1500;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const job = await apiRequest(
+      `/api/jobs/${encodeURIComponent(jobId)}`,
+      { method: "GET" },
+      12000
+    );
+
+    const progress = Number.isFinite(Number(job.progress))
+      ? Number(job.progress)
+      : Math.min(90, Math.round((attempt + 1) / maxAttempts * 90));
+
+    updateTrainingProgress(
+      progress,
+      job.message || `Training status: ${job.status || "running"}`,
+      job.status || "running"
+    );
+
+    if (job.status === "complete" || job.status === "failed") {
+      return job;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+
+  throw new Error("Training job timed out while waiting for the backend.");
 }
 
 function updateTrainingProgress(percent, message, stage) {
@@ -2372,48 +2504,68 @@ function updateTrainingProgress(percent, message, stage) {
    ========================================================= */
 
 function normalizeTrainingResponse(response, dataset, target) {
-  const root =
-    response?.data ||
-    response?.result ||
-    response;
+  const root = response?.result || response?.data || response;
+  const metricsRoot = root?.metrics || {};
 
-  const list =
+  const benchmarkList =
     root?.models ||
     root?.benchmarks ||
     root?.results ||
     root?.candidates ||
+    metricsRoot?.benchmark ||
     [];
 
-  const models = Array.isArray(list)
-    ? list.map((model, index) => normalizeModel(model, index, dataset, target))
+  const models = Array.isArray(benchmarkList)
+    ? benchmarkList.map((model, index) => normalizeModel(model, index, dataset, target))
     : [];
 
   let best = root?.best_model || root?.bestModel || root?.model || null;
+  const bestMetrics = metricsRoot?.best || root?.best_metrics || {};
 
-  if (best && typeof best !== "string") {
-    best = normalizeModel(best, -1, dataset, target);
-  } else if (typeof best === "string") {
+  if (typeof best === "string") {
     best = models.find(model => model.name === best) || {
       id: null,
       name: best,
       target,
       datasetId: dataset.id,
-      features: getColumnNames(dataset).filter(column => column !== target),
-      metrics: {}
+      serverDatasetId: dataset.serverId,
+      task: root?.problem_type || inferTaskType(dataset, target),
+      metrics: bestMetrics,
+      score: root?.best_score ?? null,
+      features: root?.features || getModelFeatureNames(null, dataset, target),
+      featureImportance: null,
+      status: "completed"
     };
+  } else if (best && typeof best === "object") {
+    best = normalizeModel(best, -1, dataset, target);
+    best.metrics = bestMetrics && Object.keys(bestMetrics).length
+      ? bestMetrics
+      : best.metrics;
+    best.score = root?.best_score ?? best.score;
   }
 
   if (!best && models.length) {
-    best = models[0];
+    const sorted = models.filter(model => model.status !== "failed");
+    best = sorted[0] || models[0];
   }
 
-  if (best && !models.some(model => model.id && model.id === best.id)) {
-    const exists = models.some(model => model.name === best.name);
-
-    if (!exists) {
-      models.unshift(best);
-    }
+  if (best) {
+    best.serverDatasetId = dataset.serverId;
+    best.datasetId = dataset.id;
+    best.target = best.target || target;
+    best.features = root?.features || best.features ||
+      getModelFeatureNames(null, dataset, target);
+    best.metrics = best.metrics || bestMetrics;
   }
+
+  if (best && !models.some(model => model.name === best.name)) {
+    models.unshift(best);
+  }
+
+  models.forEach(model => {
+    model.serverDatasetId = dataset.serverId;
+    model.datasetId = dataset.id;
+  });
 
   return { models, bestModel: best };
 }
@@ -2426,11 +2578,13 @@ function normalizeModel(model, index, dataset, target) {
 
   return {
     id: item.id ?? item.model_id ?? item.modelId ?? null,
-    name: item.name || item.model_name || item.algorithm || `Model ${index + 1}`,
+    name: item.name || item.model_name || item.model || item.algorithm || `Model ${index + 1}`,
     target: item.target || item.target_column || target,
     datasetId: dataset.id,
-    metrics: item.metrics || item.scores || item.evaluation || item,
+    serverDatasetId: dataset.serverId,
+    metrics: item.metrics || item.scores || item.evaluation || {},
     score: item.score ?? item.accuracy ?? item.r2 ?? item.f1 ?? null,
+    status: item.status || "completed",
     features: item.features || item.feature_names || null,
     featureImportance:
       item.feature_importance ||
@@ -2619,6 +2773,26 @@ function normalizeImportance(model) {
   return [];
 }
 
+async function loadFeatureImportance(dataset = getActiveDataset()) {
+  if (!dataset?.serverId || !state.activeModel) return;
+
+  try {
+    const response = await apiRequest(
+      `${ENDPOINTS.importance}/${encodeURIComponent(dataset.serverId)}/importance`,
+      { method: "GET" },
+      15000
+    );
+
+    const items = response?.feature_importance || response?.importance || [];
+    state.activeModel.featureImportance = items;
+
+    const current = state.models.find(model => model.name === state.activeModel.name);
+    if (current) current.featureImportance = items;
+  } catch (error) {
+    console.warn("Feature importance is unavailable:", error.message);
+  }
+}
+
 function renderImportance() {
   const target = $("#importance");
   if (!target) return;
@@ -2628,7 +2802,7 @@ function renderImportance() {
   if (!state.activeModel || !features.length) {
     target.innerHTML = createEmptyState(
       "Explanatory signals unavailable",
-      "The model service must return feature importance data to display measured contributions.",
+      "The trained estimator must return feature importance or coefficients for this view.",
       "⌁"
     );
     return;
@@ -2648,6 +2822,8 @@ function renderImportance() {
     </div>
   `).join("");
 }
+
+
 
 /* =========================================================
    PREDICTION INPUTS
@@ -2737,6 +2913,14 @@ async function runPrediction() {
     return;
   }
 
+  const dataset = state.datasets.find(item => item.id === model.datasetId) || getActiveDataset();
+  const serverDatasetId = model.serverDatasetId ?? dataset?.serverId;
+
+  if (serverDatasetId === null || serverDatasetId === undefined) {
+    showToast("This model is not linked to a persisted backend dataset.", "error");
+    return;
+  }
+
   if (!inputs.length) {
     showToast("No input features are available for this model.", "error");
     return;
@@ -2752,34 +2936,35 @@ async function runPrediction() {
     if (value === "") {
       missing.push(key);
     } else if (input.type === "number") {
-      features[key] = Number(value);
+      const number = Number(value);
+
+      if (!Number.isFinite(number)) {
+        missing.push(key);
+      } else {
+        features[key] = number;
+      }
     } else {
       features[key] = value;
     }
   });
 
   if (missing.length) {
-    showToast(`Complete the required feature fields: ${missing.slice(0, 3).join(", ")}`, "error");
+    showToast(
+      `Complete or correct these feature fields: ${missing.slice(0, 3).join(", ")}`,
+      "error"
+    );
     return;
   }
 
   setButtonLoading(button, true, "Generating");
 
   try {
-    const body = {
-      model_id: model.id,
-      model_name: model.name,
-      dataset_id: model.datasetId,
-      target: model.target,
-      features,
-      input: features
-    };
-
+    // The FastAPI prediction route expects the feature-name/value object directly.
     const response = await apiRequest(
-      ENDPOINTS.predict,
+      `${ENDPOINTS.predict}/${encodeURIComponent(serverDatasetId)}/predict`,
       {
         method: "POST",
-        body: JSON.stringify(body)
+        body: JSON.stringify(features)
       },
       30000
     );
