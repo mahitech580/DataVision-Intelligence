@@ -627,9 +627,12 @@ function isNumericColumn(values) {
 }
 
 function getNumericColumns(dataset) {
-  return getColumnNames(dataset).filter(column =>
-    isNumericColumn(getColumnValues(dataset, column))
-  );
+  const stats = dataset?.analysis?.columnStats || [];
+  return getColumnNames(dataset).filter(column => {
+    const values = getColumnValues(dataset, column);
+    if (values.length) return isNumericColumn(values);
+    return stats.some(item => item.name === column && item.numeric === true);
+  });
 }
 
 function getColumnType(values) {
@@ -1095,7 +1098,12 @@ function normalizeServerProfile(profile, localRows = []) {
   const missingCells = safeNumber(profile?.missing_total, 0);
   const duplicateRows = safeNumber(profile?.duplicate_rows, 0);
   const numericNames = new Set(profile?.numerical_columns || []);
-  const emptyColumns = new Set(profile?.empty_columns || []);
+  const emptyColumns = new Set(
+    profile?.empty_columns ||
+    serverColumns
+      .filter(column => safeNumber(column.non_null, rowCount - safeNumber(column.missing, 0)) === 0)
+      .map(column => String(column.name ?? column.column ?? ""))
+  );
   const constantColumns = new Set(profile?.constant_columns || []);
 
   const columnStats = serverColumns.map(column => {
@@ -1711,6 +1719,43 @@ async function syncPersistedDatasets() {
 
   // Load each persisted profile. Profile responses deliberately contain
   // aggregate metadata, not the original data rows.
+  // Remove stale server-backed inventory entries that no longer exist.
+  // Browser-only datasets without a server ID remain available in the session.
+  const staleServerIds = new Set(
+    state.datasets
+      .filter(dataset =>
+        dataset.serverId !== null &&
+        dataset.serverId !== undefined &&
+        !remoteIds.has(String(dataset.serverId))
+      )
+      .map(dataset => String(dataset.serverId))
+  );
+
+  if (staleServerIds.size) {
+    state.datasets = state.datasets.filter(dataset =>
+      dataset.serverId === null ||
+      dataset.serverId === undefined ||
+      !staleServerIds.has(String(dataset.serverId))
+    );
+
+    state.models = state.models.filter(model =>
+      model.serverDatasetId === null ||
+      model.serverDatasetId === undefined ||
+      !staleServerIds.has(String(model.serverDatasetId))
+    );
+
+    if (state.activeModel?.serverDatasetId !== null &&
+        state.activeModel?.serverDatasetId !== undefined &&
+        staleServerIds.has(String(state.activeModel.serverDatasetId))) {
+      state.activeModel = null;
+      state.predictionFeatures = [];
+    }
+
+    if (!state.datasets.some(dataset => dataset.id === state.activeDatasetId)) {
+      state.activeDatasetId = state.datasets[0]?.id || null;
+    }
+  }
+
   const remoteDatasets = state.datasets.filter(dataset =>
     remoteIds.has(String(dataset.serverId))
   );
@@ -1809,6 +1854,10 @@ async function syncPersistedDatasets() {
   }
 
   if (state.activeModel) {
+    const modelDataset = state.datasets.find(dataset => dataset.id === state.activeModel.datasetId);
+    if (modelDataset?.serverId !== null && modelDataset?.serverId !== undefined) {
+      await loadFeatureImportance(modelDataset);
+    }
     renderModels();
     renderImportance();
     renderPredictionPanel();
@@ -2212,20 +2261,29 @@ function renderCorrelations(dataset) {
 
   const sampleRows = (dataset.rows || []).slice(0, MAX_CORRELATION_ROWS);
   const results = [];
+  const savedCorrelation = dataset.serverProfile?.correlations;
 
-  for (let i = 0; i < columns.length; i++) {
-    for (let j = i + 1; j < columns.length; j++) {
-      const correlation = pearsonCorrelation(
-        sampleRows.map(row => row[columns[i]]),
-        sampleRows.map(row => row[columns[j]])
-      );
+  if (!sampleRows.length && Array.isArray(savedCorrelation?.columns) && Array.isArray(savedCorrelation?.matrix)) {
+    const labels = savedCorrelation.columns;
+    const matrix = savedCorrelation.matrix;
 
-      if (correlation !== null) {
-        results.push({
-          a: columns[i],
-          b: columns[j],
-          value: correlation
-        });
+    for (let i = 0; i < labels.length; i++) {
+      for (let j = i + 1; j < labels.length; j++) {
+        const value = numericValue(matrix[i]?.[j]);
+        if (value === null) continue;
+        results.push({ a: labels[i], b: labels[j], value });
+      }
+    }
+  } else {
+    for (let i = 0; i < columns.length; i++) {
+      for (let j = i + 1; j < columns.length; j++) {
+        const correlation = pearsonCorrelation(
+          sampleRows.map(row => row[columns[i]]),
+          sampleRows.map(row => row[columns[j]])
+        );
+        if (correlation !== null) {
+          results.push({ a: columns[i], b: columns[j], value: correlation });
+        }
       }
     }
   }
@@ -2240,6 +2298,10 @@ function renderCorrelations(dataset) {
     return;
   }
 
+  const sampleDescription = sampleRows.length
+    ? `${formatNumber(sampleRows.length)} sampled records`
+    : "server-side profile matrix";
+
   target.innerHTML = results.slice(0, 8).map(item => {
     const magnitude = Math.abs(item.value);
     const strength = magnitude >= 0.7
@@ -2248,11 +2310,7 @@ function renderCorrelations(dataset) {
         ? "Moderate"
         : "Weak";
 
-    const color = magnitude >= 0.7
-      ? "green"
-      : magnitude >= 0.4
-        ? "purple"
-        : "";
+    const color = magnitude >= 0.7 ? "green" : magnitude >= 0.4 ? "purple" : "";
 
     return `
       <div class="correlation-item">
@@ -2263,7 +2321,7 @@ function renderCorrelations(dataset) {
         <div class="bar-track">
           <div class="bar-fill" style="width:${magnitude * 100}%"></div>
         </div>
-        <div class="signal-detail">${strength} linear association · ${formatNumber(sampleRows.length)} sampled records</div>
+        <div class="signal-detail">${strength} linear association · ${escapeHTML(sampleDescription)}</div>
       </div>`;
   }).join("");
 }
@@ -3054,7 +3112,10 @@ function normalizeTrainingResponse(response, dataset, target) {
     [];
 
   const models = Array.isArray(benchmarkList)
-    ? benchmarkList.map((model, index) => normalizeModel(model, index, dataset, target))
+    ? benchmarkList.map((model, index) => normalizeModel({
+        ...model,
+        problem_type: model?.problem_type || root?.problem_type
+      }, index, dataset, target))
     : [];
 
   let best = root?.best_model || root?.bestModel || root?.model || null;
@@ -3103,6 +3164,19 @@ function normalizeTrainingResponse(response, dataset, target) {
   models.forEach(model => {
     model.serverDatasetId = dataset.serverId;
     model.datasetId = dataset.id;
+  });
+
+  // Benchmark entries are not guaranteed to arrive ranked. Sort successful
+  // results by the backend-provided primary score and place failures last.
+  models.sort((a, b) => {
+    if (a.status === "failed" && b.status !== "failed") return 1;
+    if (b.status === "failed" && a.status !== "failed") return -1;
+    const scoreA = numericValue(a.score);
+    const scoreB = numericValue(b.score);
+    if (scoreA === null && scoreB === null) return 0;
+    if (scoreA === null) return 1;
+    if (scoreB === null) return -1;
+    return scoreB - scoreA;
   });
 
   return { models, bestModel: best };
@@ -3169,7 +3243,7 @@ function renderModels() {
                 </td>
                 <td>${escapeHTML(model.task || "—")}</td>
                 <td>${escapeHTML(formatModelScore(model))}</td>
-                <td><span class="tag green">Returned</span></td>
+                <td><span class="tag ${model.status === "failed" ? "red" : "green"}">${escapeHTML(model.status === "failed" ? "Failed" : "Completed")}</span></td>
               </tr>
             `).join("")}
           </tbody>
