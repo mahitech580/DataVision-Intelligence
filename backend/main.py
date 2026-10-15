@@ -122,6 +122,7 @@ def frontend_script():
 
 
 @app.get("/health")
+@app.get("/api/health", include_in_schema=False)
 def health():
     checks = {}
     try:
