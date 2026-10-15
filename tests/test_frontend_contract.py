@@ -32,6 +32,7 @@ def test_browser_endpoints_match_implemented_fastapi_routes():
 
     backend_routes = [
         '@app.get("/health")',
+        '@app.get("/api/health", include_in_schema=False)',
         '@app.get("/api/datasets")',
         '@app.post("/api/datasets/upload")',
         '@app.get("/api/stream")',
