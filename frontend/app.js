@@ -1296,12 +1296,17 @@ async function refreshWorkspace() {
 
   try {
     await checkBackendHealth();
+
+    if (state.backendOnline) {
+      await syncPersistedDatasets();
+    }
+
     renderAll();
 
     showToast(
       state.backendOnline
-        ? "Workspace refreshed. Backend health was confirmed."
-        : "Workspace refreshed. Backend is currently unavailable.",
+        ? "Workspace refreshed from the backend."
+        : "Workspace refreshed locally; backend is unavailable.",
       state.backendOnline ? "success" : ""
     );
   } finally {
@@ -1588,9 +1593,9 @@ function renderDatasetList() {
       const selected = dataset.id === state.activeDatasetId;
       const extension = dataset.type || "DATA";
 
-      const backendTag = dataset.serverId
-        ? `<span class="tag green">Synced</span>`
-        : "";
+      const backendTag = dataset.serverId !== null && dataset.serverId !== undefined
+        ? `<span class="tag green">Persisted</span>`
+        : `<span class="tag yellow">Local</span>`;
 
       return `
         <button
@@ -1616,6 +1621,205 @@ function renderDatasetList() {
 
   setText("#inventoryCount", `${state.datasets.length} item${state.datasets.length === 1 ? "" : "s"}`);
   setText("#datasetNavCount", formatNumber(state.datasets.length));
+}
+
+async function syncPersistedDatasets() {
+  if (!state.backendOnline) return;
+
+  let response;
+
+  try {
+    response = await apiRequest(ENDPOINTS.datasets, { method: "GET" }, 15000);
+  } catch (error) {
+    console.warn("Could not synchronize the persisted dataset inventory:", error.message);
+    return;
+  }
+
+  const records = Array.isArray(response?.datasets)
+    ? response.datasets
+    : Array.isArray(response)
+      ? response
+      : [];
+
+  const remoteIds = new Set();
+
+  for (const record of records) {
+    if (record?.id === null || record?.id === undefined) continue;
+
+    const serverId = record.id;
+    remoteIds.add(String(serverId));
+
+    let dataset = state.datasets.find(item =>
+      String(item.serverId) === String(serverId)
+    );
+
+    if (!dataset) {
+      const originalName = record.original_name || record.name || `dataset-${serverId}`;
+      const extension = originalName.includes(".")
+        ? originalName.split(".").pop().toUpperCase()
+        : "DATA";
+
+      dataset = {
+        id: createId("remote"),
+        serverId,
+        name: originalName,
+        type: extension,
+        size: safeNumber(record.size_bytes, 0),
+        rows: [],
+        columns: [],
+        createdAt: record.created_at || new Date().toISOString(),
+        remoteOnly: true,
+        backendUpload: "success",
+        analysis: {
+          rowCount: safeNumber(record.rows, 0),
+          columnCount: safeNumber(record.columns, 0),
+          columns: [],
+          columnStats: [],
+          cells: 0,
+          missingCells: 0,
+          missingPct: 0,
+          duplicates: 0,
+          duplicatePct: 0,
+          numericCount: 0,
+          emptyColumns: 0,
+          constantColumns: 0
+        }
+      };
+
+      state.datasets.push(dataset);
+    }
+
+    dataset.serverId = serverId;
+    dataset.size = safeNumber(record.size_bytes, dataset.size || 0);
+    dataset.name = record.original_name || record.name || dataset.name;
+    dataset.type = dataset.name.includes(".")
+      ? dataset.name.split(".").pop().toUpperCase()
+      : dataset.type;
+    dataset.remoteOnly = dataset.remoteOnly || dataset.rows.length === 0;
+    dataset.serverInsights = Array.isArray(record.insights) ? record.insights : [];
+
+    if (record.metrics && typeof record.metrics === "object") {
+      dataset.savedMetrics = record.metrics;
+    }
+
+    if (record.model_name) {
+      dataset.savedModelName = record.model_name;
+      dataset.savedTarget = record.target;
+      dataset.savedProblemType = record.problem_type;
+    }
+  }
+
+  // Load each persisted profile. Profile responses deliberately contain
+  // aggregate metadata, not the original data rows.
+  const remoteDatasets = state.datasets.filter(dataset =>
+    remoteIds.has(String(dataset.serverId))
+  );
+
+  await Promise.all(remoteDatasets.map(async dataset => {
+    try {
+      const detail = await apiRequest(
+        `${ENDPOINTS.datasets}/${encodeURIComponent(dataset.serverId)}`,
+        { method: "GET" },
+        15000
+      );
+
+      const profile = detail?.profile || detail?.dataset?.profile || null;
+
+      if (profile) {
+        dataset.serverProfile = profile;
+        dataset.analysis = normalizeServerProfile(profile, dataset.rows || []);
+        dataset.columns = dataset.analysis.columns;
+      }
+
+      if (Array.isArray(detail?.insights)) {
+        dataset.serverInsights = detail.insights;
+      }
+
+      dataset.remoteOnly = !(dataset.rows && dataset.rows.length);
+    } catch (error) {
+      console.warn(`Profile for dataset ${dataset.serverId} could not be loaded:`, error.message);
+    }
+  }));
+
+  // Rehydrate saved benchmark metadata so model history survives a reload.
+  for (const dataset of remoteDatasets) {
+    const metrics = dataset.savedMetrics;
+    const benchmark = Array.isArray(metrics?.benchmark) ? metrics.benchmark : [];
+
+    if (!dataset.savedModelName || !dataset.savedTarget) continue;
+
+    const normalized = benchmark.map((entry, index) => normalizeModel({
+      ...entry,
+      name: entry.model || entry.model_name || entry.name,
+      problem_type: dataset.savedProblemType,
+      target: dataset.savedTarget
+    }, index, dataset, dataset.savedTarget));
+
+    let best = normalized.find(model => model.name === dataset.savedModelName);
+
+    if (!best) {
+      best = {
+        id: null,
+        name: dataset.savedModelName,
+        target: dataset.savedTarget,
+        task: dataset.savedProblemType || "unknown",
+        datasetId: dataset.id,
+        serverDatasetId: dataset.serverId,
+        metrics: metrics?.best || {},
+        score: metrics?.best?.accuracy ?? metrics?.best?.f1 ?? metrics?.best?.r2 ?? null,
+        features: getColumnNames(dataset).filter(column => column !== dataset.savedTarget),
+        featureImportance: null,
+        status: "completed"
+      };
+    } else {
+      best.metrics = metrics?.best || best.metrics;
+      best.datasetId = dataset.id;
+      best.serverDatasetId = dataset.serverId;
+    }
+
+    const existingForDataset = state.models.filter(model =>
+      String(model.serverDatasetId ?? "") !== String(dataset.serverId)
+    );
+
+    state.models = [...existingForDataset, ...normalized];
+
+    if (!state.models.some(model =>
+      model.datasetId === dataset.id && model.name === best.name
+    )) {
+      state.models.push(best);
+    }
+
+    if (!state.activeModel) {
+      state.activeModel = best;
+      state.predictionFeatures = getModelFeatureNames(best, dataset, best.target);
+    }
+  }
+
+  if (!state.activeDatasetId && state.datasets.length) {
+    state.activeDatasetId = state.datasets[0].id;
+  }
+
+  renderDatasetList();
+  renderMetrics();
+
+  const activeDataset = getActiveDataset();
+
+  if (activeDataset && activeDataset.serverProfile) {
+    renderDatasetProfile(activeDataset);
+  }
+
+  if (state.activeModel) {
+    renderModels();
+    renderImportance();
+    renderPredictionPanel();
+  }
+
+  recordEvent(
+    "system",
+    "Persisted inventory synchronized",
+    `${records.length} dataset record(s) returned by the backend.`,
+    "✓"
+  );
 }
 
 function initializeDatasetListClicks() {
@@ -1722,30 +1926,36 @@ function renderPreviewTable(dataset) {
   const visibleColumns = columns.slice(0, MAX_TABLE_COLUMNS);
   const visibleRows = rows.slice(0, MAX_PREVIEW_ROWS);
 
-  table.innerHTML = `
-    <thead>
-      <tr>
-        ${visibleColumns.map(column =>
-          `<th>${escapeHTML(column)}</th>`
-        ).join("")}
-        ${columns.length > MAX_TABLE_COLUMNS ? "<th>More columns</th>" : ""}
-      </tr>
-    </thead>
-    <tbody>
-      ${visibleRows.map(row => `
+  const bodyHTML = visibleRows.length
+    ? visibleRows.map(row => `
         <tr>
           ${visibleColumns.map(column =>
             `<td title="${escapeHTML(row[column] ?? "")}">${escapeHTML(row[column] ?? "—")}</td>`
           ).join("")}
           ${columns.length > MAX_TABLE_COLUMNS ? `<td>+${columns.length - MAX_TABLE_COLUMNS}</td>` : ""}
         </tr>
-      `).join("")}
-    </tbody>
+      `).join("")
+    : `<tr><td colspan="${Math.max(1, visibleColumns.length + (columns.length > MAX_TABLE_COLUMNS ? 1 : 0))}">${escapeHTML(
+        dataset.remoteOnly
+          ? "This dataset is persisted on the server. The API returns profile metadata rather than raw row values."
+          : "No preview rows are available."
+      )}</td></tr>`;
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        ${visibleColumns.map(column => `<th>${escapeHTML(column)}</th>`).join("")}
+        ${columns.length > MAX_TABLE_COLUMNS ? "<th>More columns</th>" : ""}
+      </tr>
+    </thead>
+    <tbody>${bodyHTML}</tbody>
   `;
 
   setText(
     "#previewRecordCount",
-    `Showing ${formatNumber(visibleRows.length)} of ${formatNumber(rows.length)} records`
+    dataset.remoteOnly && !rows.length
+      ? `${formatNumber(dataset.analysis?.rowCount || 0)} stored records · preview not returned by API`
+      : `Showing ${formatNumber(visibleRows.length)} of ${formatNumber(rows.length)} records`
   );
 
   setText(
@@ -1918,6 +2128,17 @@ function renderInsights(dataset) {
       type: "red"
     });
   }
+
+  (Array.isArray(dataset.serverInsights) ? dataset.serverInsights : [])
+    .slice(0, 6)
+    .forEach((message, index) => {
+      if (typeof message !== "string" || !message.trim()) return;
+      findings.push({
+        title: `Backend insight ${index + 1}`,
+        message,
+        type: "purple"
+      });
+    });
 
   target.innerHTML = findings.map(item => `
     <div class="insight-card">
@@ -3221,8 +3442,11 @@ async function initializeApp() {
     "✓"
   );
 
-  // Local profiling remains available if the API is unreachable.
   await checkBackendHealth();
+
+  if (state.backendOnline) {
+    await syncPersistedDatasets();
+  }
 
   renderAll();
 }
