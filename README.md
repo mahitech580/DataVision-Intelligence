@@ -412,16 +412,24 @@ The list and detail APIs do not return complete raw dataset rows. After a browse
 
 The current backend does not expose a separate background worker, durable queue, or persistent job-history API. Jobs and the SSE event buffer are in process memory and are cleared by a server restart.
 
+## Live Deployment
+
+- **Frontend:** https://mahitech580.github.io/DataVision-Intelligence/
+- **FastAPI backend:** https://datavision-intelligence-api-mahitech580.onrender.com
+- **Health endpoint:** https://datavision-intelligence-api-mahitech580.onrender.com/health
+- **API documentation:** https://datavision-intelligence-api-mahitech580.onrender.com/docs
+
+The frontend's `datavision-api-base` metadata is configured to use the backend origin. The backend CORS allowlist includes the GitHub Pages origin `https://mahitech580.github.io`.
+
+The backend is deployed as a free Render web service. Its current SQLite database, uploaded files, and model artifacts live on the service filesystem. Free-service filesystems are not suitable for durable production persistence across all restarts and redeployments. For production use, configure durable database and file/model storage before relying on dataset history.
+
+CORS is not authentication. The current API does not implement user authentication or per-user dataset authorization; do not upload confidential or personal data to this public deployment.
+
 ## Hosting the Frontend Separately
 
-The frontend can be deployed as a static site, but API-backed features require a running FastAPI backend.
+For another frontend host, change the `datavision-api-base` meta tag in `frontend/index.html` to the HTTPS backend origin. Set `DATAVISION_CORS_ORIGINS` on the backend to the exact trusted frontend origin(s), separated by commas. Keep the API base to the origin only, without a route suffix or trailing slash.
 
-1. Deploy the backend over HTTPS.
-2. Set `DATAVISION_CORS_ORIGINS` on the backend to the exact trusted frontend origin(s), separated by commas. For the GitHub Pages site, use `https://mahitech580.github.io`; include your local development origin only when needed.
-3. Set the `datavision-api-base` meta tag in `frontend/index.html` to the backend origin, for example `https://your-api.example.com`. Keep only the origin, without an API route suffix or trailing slash.
-4. Redeploy the frontend and verify `/health`, dataset upload, training, prediction, and `/api/stream` in the browser's network panel.
-
-The default API origin is same-origin, so the app can also run directly from the FastAPI server without additional CORS configuration. CORS is not authentication: do not expose private datasets or model operations publicly without suitable access controls.
+The app can also run directly from FastAPI using relative assets. Verify `/health`, dataset upload, training, prediction, and `/api/stream` after deployment.
 
 ## Interactive Exploratory Charts
 
