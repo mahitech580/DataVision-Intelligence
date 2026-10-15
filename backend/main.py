@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import threading
 import uuid
 from collections import deque
@@ -12,6 +13,7 @@ import joblib
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
 from backend.intelligence import feature_importance, generate_insights, load_dataframe, predict, profile_dataframe, train_automl
@@ -21,6 +23,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
 
 app = FastAPI(title="DataVision Intelligence", version="2.0.0", description="Advanced realtime AI-powered data intelligence platform.")
+
+# For deployments where GitHub Pages or another static frontend calls this API,
+# set DATAVISION_CORS_ORIGINS to a comma-separated list of trusted origins.
+# Keep this explicit in production rather than allowing arbitrary website origins.
+_default_origins = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+_configured_origins = os.getenv("DATAVISION_CORS_ORIGINS", "")
+CORS_ORIGINS = list(dict.fromkeys(
+    origin.strip().rstrip("/")
+    for origin in [*_default_origins, *_configured_origins.split(",")]
+    if origin.strip()
+))
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Accept", "Content-Type"],
+)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.mount("/assets", StaticFiles(directory=FRONTEND_DIR), name="assets")
 init_db()
