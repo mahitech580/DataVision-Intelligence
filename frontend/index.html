@@ -688,6 +688,84 @@
             </div>
           </section>
 
+          <!-- Interactive exploratory analytics -->
+          <section class="subsection exploratory-analytics">
+            <div class="subsection-heading">
+              <div>
+                <div class="eyebrow">EXPLORATORY DATA ANALYSIS</div>
+                <h3>Visual feature intelligence</h3>
+              </div>
+              <span class="tag purple">CHART.JS</span>
+            </div>
+
+            <div class="grid-two analysis-grid chart-grid">
+              <section class="panel chart-panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="eyebrow">NUMERIC DISTRIBUTION</div>
+                    <h3>Feature distribution</h3>
+                    <p>Inspect the spread of a numerical variable.</p>
+                  </div>
+                  <span class="chart-panel-symbol">↗</span>
+                </div>
+
+                <div class="chart-controls">
+                  <label for="numericChartSelect">Numeric feature</label>
+                  <select id="numericChartSelect" class="form-control">
+                    <option value="">Select a numeric feature</option>
+                  </select>
+                </div>
+
+                <div class="chart-container">
+                  <canvas id="numericDistributionChart" role="img" aria-label="Distribution of the selected numerical feature"></canvas>
+                </div>
+
+                <p id="numericChartNote" class="chart-note">Select a dataset with numeric columns to view its distribution.</p>
+              </section>
+
+              <section class="panel chart-panel">
+                <div class="panel-head">
+                  <div>
+                    <div class="eyebrow">CATEGORICAL ANALYSIS</div>
+                    <h3>Category frequency</h3>
+                    <p>Compare the most common category values.</p>
+                  </div>
+                  <span class="chart-panel-symbol cyan">▥</span>
+                </div>
+
+                <div class="chart-controls">
+                  <label for="categoricalChartSelect">Categorical feature</label>
+                  <select id="categoricalChartSelect" class="form-control">
+                    <option value="">Select a categorical feature</option>
+                  </select>
+                </div>
+
+                <div class="chart-container">
+                  <canvas id="categoryDistributionChart" role="img" aria-label="Frequency of the most common values in the selected categorical feature"></canvas>
+                </div>
+
+                <p id="categoryChartNote" class="chart-note">Select a dataset with categorical columns to view category counts.</p>
+              </section>
+            </div>
+
+            <section class="panel chart-panel chart-panel-wide">
+              <div class="panel-head">
+                <div>
+                  <div class="eyebrow">COMPLETENESS ANALYSIS</div>
+                  <h3>Missing values by feature</h3>
+                  <p>Prioritize columns that need data-quality attention.</p>
+                </div>
+                <span class="tag yellow" id="missingChartBadge">Awaiting profile</span>
+              </div>
+
+              <div class="chart-container small-chart">
+                <canvas id="missingnessChart" role="img" aria-label="Missing value percentage by dataset column"></canvas>
+              </div>
+
+              <p id="missingChartNote" class="chart-note">The missingness chart appears after a dataset is profiled.</p>
+            </section>
+          </section>
+
           <!-- Profile and insights -->
           <div class="grid-two analysis-grid">
 
