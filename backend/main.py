@@ -210,28 +210,84 @@ def datasets():
 async def upload_dataset(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Choose a dataset file.")
+
     suffix = Path(file.filename).suffix.lower()
     if suffix not in {".csv", ".xlsx", ".xls"}:
         raise HTTPException(status_code=400, detail="Supported formats: CSV, XLSX, XLS.")
-    raw = await file.read()
-    if len(raw) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Maximum upload size is 50 MB.")
 
+    # Stream the upload to disk in bounded chunks. Reading the complete body
+    # into memory before enforcing the limit could exhaust memory on large files.
+    max_upload_bytes = 50 * 1024 * 1024
     path = DATA_DIR / (uuid.uuid4().hex + suffix)
-    path.write_bytes(raw)
+    total_size = 0
+
+    try:
+        with path.open("wb") as destination:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+
+                total_size += len(chunk)
+                if total_size > max_upload_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail="Maximum upload size is 50 MB.",
+                    )
+
+                destination.write(chunk)
+    except HTTPException:
+        path.unlink(missing_ok=True)
+        raise
+    except Exception as exc:
+        path.unlink(missing_ok=True)
+        raise HTTPException(
+            status_code=500,
+            detail="The uploaded file could not be stored.",
+        ) from exc
+    finally:
+        await file.close()
+
+    if total_size == 0:
+        path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="The uploaded file is empty.")
+
     try:
         df = load_dataframe(path)
         profile = profile_dataframe(df)
         insights = generate_insights(profile)
     except Exception as exc:
         path.unlink(missing_ok=True)
-        raise HTTPException(status_code=400, detail=f"Dataset could not be parsed: {exc}") from exc
+        raise HTTPException(
+            status_code=400,
+            detail=f"Dataset could not be parsed: {exc}",
+        ) from exc
 
-    dataset_id = create_dataset({"name": Path(file.filename).stem, "original_name": file.filename, "path": str(path), "rows": profile["shape"]["rows"], "columns": profile["shape"]["columns"], "size_bytes": len(raw)})
+    dataset_id = create_dataset({
+        "name": Path(file.filename).stem,
+        "original_name": file.filename,
+        "path": str(path),
+        "rows": profile["shape"]["rows"],
+        "columns": profile["shape"]["columns"],
+        "size_bytes": total_size,
+    })
+
     emit("dataset", f"Dataset '{file.filename}' ingested successfully.")
-    emit("profile", f"Profile ready: {profile['shape']['rows']:,} rows × {profile['shape']['columns']} columns.")
-    return {"id": dataset_id, "dataset": {"id": dataset_id, "name": Path(file.filename).stem, "original_name": file.filename, "profile": profile, "insights": insights}}
+    emit(
+        "profile",
+        f"Profile ready: {profile['shape']['rows']:,} rows × {profile['shape']['columns']} columns.",
+    )
 
+    return {
+        "id": dataset_id,
+        "dataset": {
+            "id": dataset_id,
+            "name": Path(file.filename).stem,
+            "original_name": file.filename,
+            "profile": profile,
+            "insights": insights,
+        },
+    }
 
 @app.get("/api/datasets/{dataset_id}")
 def dataset_detail(dataset_id: int):
