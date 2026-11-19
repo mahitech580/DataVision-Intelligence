@@ -80,3 +80,26 @@ def test_profile_recognizes_pandas_string_dtype_as_categorical():
 
     assert "segment" in profile["categorical_columns"]
     assert "amount" in profile["numerical_columns"]
+
+def test_automl_falls_back_when_stratification_cannot_fit_all_classes(tmp_path):
+    from backend.intelligence import train_automl
+
+    # Thirty rows are enough for AutoML, but ten classes cannot all be
+    # represented in a six-row (20%) test partition.
+    frame = pd.DataFrame({
+        "signal": np.arange(30, dtype=float),
+        "target": [f"class-{index // 3}" for index in range(30)],
+    })
+
+    result = train_automl(
+        frame,
+        target="target",
+        dataset_id=999,
+        model_dir=tmp_path,
+        progress=lambda *_args: None,
+    )
+
+    assert result["problem_type"] == "classification"
+    assert result["best_model"]
+    assert any(item["status"] == "completed" for item in result["metrics"]["benchmark"])
+
