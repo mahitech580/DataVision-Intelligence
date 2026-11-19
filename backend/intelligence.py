@@ -197,7 +197,17 @@ def train_automl(df: pd.DataFrame, target: str, dataset_id: int, model_dir: str 
     stratify = None
     if problem_type == "classification" and y.nunique() > 1:
         class_counts = y.value_counts()
-        if int(class_counts.min()) >= 2:
+        # Stratified splitting requires every class to fit in both partitions.
+        # A target with many classes can have enough rows overall but still
+        # exceed the number of rows available in the smaller test partition.
+        test_rows = int(np.ceil(len(df) * 0.2))
+        train_rows = len(df) - test_rows
+        class_count = int(class_counts.size)
+        if (
+            int(class_counts.min()) >= 2
+            and test_rows >= class_count
+            and train_rows >= class_count
+        ):
             stratify = y
     X_train, X_test, y_train, y_test = train_test_split(
         df[features], y, test_size=0.2, random_state=42, stratify=stratify
